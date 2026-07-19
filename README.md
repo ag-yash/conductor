@@ -2,7 +2,7 @@
 
 Conductor is an intelligent, local-first AI workload manager for developers. It will provide a unified way to schedule, run, and observe heterogeneous AI workloads while managing limited local compute and memory responsibly.
 
-This repository currently contains the production-oriented foundation for Conductor. Application behavior will be introduced through reviewed milestones; the initial scaffold deliberately contains no business logic.
+The first executable milestone provides the production-oriented control-plane shell: validated configuration, correlated structured logs, health checks, automated tests, and continuous integration. Job scheduling and AI execution are introduced in later milestones.
 
 ## Product principles
 
@@ -51,17 +51,19 @@ The boundaries are intentionally documented before implementation. See [`docs/`]
 Conductor requires Python 3.12 or newer for backend development.
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e '.[dev]'
 make check
 ```
 
+Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/api/v1/health/live`. The [M1 getting-started guide](docs/getting-started.md) explains the endpoints and configuration in plain language.
+
 The dashboard toolchain will be added when its first functional milestone begins.
 
 ## Status
 
-The repository foundation and V1 design package are complete. There is no application logic yet. The next milestone introduces the executable control-plane shell and its first tested health endpoint.
+M1 is complete: the API shell is runnable, tested, strictly typed, and checked in CI. M2 introduces durable jobs and execution attempts; the scheduler and AI runtimes remain deliberately out of scope until that state model is proven.
 
 ## Contributing
 

@@ -1,3 +1,3 @@
 # Backend
 
-This directory contains Conductor's Python control plane. It is organized as a modular monolith: modules have explicit responsibilities and contracts while sharing one deployable application boundary in the first release.
+This directory contains Conductor's Python control plane. Production code lives under `src/conductor` so the installed package has an unambiguous name. The modules have explicit responsibilities while sharing one deployable application boundary in V1.

@@ -23,10 +23,10 @@ node_modules/
 dashboard/dist/
 *.tsbuildinfo
 
-# Models, artifacts, and runtime data
-models/
-artifacts/
-data/
+# Downloaded AI models, artifacts, and runtime data at the repository root
+/models/
+/artifacts/
+/data/
 *.db
 *.sqlite
 *.sqlite3

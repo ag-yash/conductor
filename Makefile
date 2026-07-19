@@ -9,18 +9,18 @@ install: ## Install the project and development dependencies
 	python -m pip install -e '.[dev]'
 
 format: ## Format Python sources
-	python -m black backend tests
-	python -m ruff check --fix backend tests
+	python -m black backend/src tests
+	python -m ruff check --fix backend/src tests
 
 lint: ## Check Python formatting and lint rules
-	python -m black --check backend tests
-	python -m ruff check backend tests
+	python -m black --check backend/src tests
+	python -m ruff check backend/src tests
 
 typecheck: ## Run static type analysis
-	python -m mypy backend tests
+	python -m mypy backend/src tests
 
 test: ## Run the test suite
-	python -m pytest
+	python -m pytest --cov=conductor --cov-report=term-missing
 
 check: lint typecheck test ## Run all required local checks
 

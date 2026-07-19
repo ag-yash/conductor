@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
+    database_url: str = "sqlite:///./data/conductor.db"
+    max_job_payload_bytes: int = Field(default=262_144, ge=1, le=10_485_760)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     version: str = __version__
 

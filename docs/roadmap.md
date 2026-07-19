@@ -2,7 +2,7 @@
 
 Each milestone ends in a runnable, reviewable state and adds only behavior needed by the V1 success criteria.
 
-## M1 — Executable control-plane shell
+## M1 — Executable control-plane shell ✅
 
 - FastAPI application factory and typed settings.
 - Versioned health and readiness endpoints.
@@ -11,7 +11,7 @@ Each milestone ends in a runnable, reviewable state and adds only behavior neede
 
 Demo: start the control plane and inspect build/readiness information.
 
-## M2 — Durable job core
+## M2 — Durable job core ✅
 
 - Job and attempt domain objects with guarded transitions.
 - SQLite migrations, repository ports, and implementations.

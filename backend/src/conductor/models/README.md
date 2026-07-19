@@ -1,3 +1,3 @@
 # Models
 
-Will own infrastructure-facing persistence and serialization shapes that are not domain entities. The name refers to software data models, not downloaded AI artifacts.
+Owns SQLModel database records. These translate to domain objects and contain no lifecycle behavior. The name refers to software data models, not downloaded AI artifacts.

@@ -6,10 +6,16 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from conductor.api.errors import register_error_handlers
 from conductor.api.health import router as health_router
+from conductor.api.jobs import router as jobs_router
 from conductor.config.settings import Settings, get_settings
 from conductor.core.logging import configure_logging
 from conductor.core.request_context import RequestContextMiddleware
+from conductor.services.jobs import JobService
+from conductor.storage.database import Database
+from conductor.storage.migrations import run_migrations
+from conductor.storage.unit_of_work import SqlUnitOfWork
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -17,14 +23,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings.log_level)
+    database = Database(resolved_settings.database_url)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        run_migrations(resolved_settings.database_url)
+        database.check_connection()
+        application.state.database_ready = True
         application.state.ready = True
         try:
             yield
         finally:
             application.state.ready = False
+            application.state.database_ready = False
+            database.dispose()
 
     application = FastAPI(
         title="Conductor Control Plane",
@@ -34,8 +46,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.state.settings = resolved_settings
     application.state.ready = False
+    application.state.database_ready = False
+    application.state.job_service = JobService(
+        lambda: SqlUnitOfWork(database),
+        max_payload_bytes=resolved_settings.max_job_payload_bytes,
+    )
     application.add_middleware(RequestContextMiddleware)
+    register_error_handlers(application)
     application.include_router(health_router, prefix=resolved_settings.api_prefix)
+    application.include_router(jobs_router, prefix=resolved_settings.api_prefix)
     return application
 
 

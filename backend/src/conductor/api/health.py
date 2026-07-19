@@ -46,6 +46,15 @@ async def live(request: Request) -> LiveResponse:
 async def ready(request: Request) -> ReadyResponse:
     """Report whether application startup has completed."""
 
-    is_ready = bool(request.app.state.ready)
+    is_ready = bool(request.app.state.ready and request.app.state.database_ready)
     state: Literal["ready", "not_ready"] = "ready" if is_ready else "not_ready"
-    return ReadyResponse(status=state, checks={"application": state})
+    application_state: Literal["ready", "not_ready"] = (
+        "ready" if request.app.state.ready else "not_ready"
+    )
+    database_state: Literal["ready", "not_ready"] = (
+        "ready" if request.app.state.database_ready else "not_ready"
+    )
+    return ReadyResponse(
+        status=state,
+        checks={"application": application_state, "database": database_state},
+    )

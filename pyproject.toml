@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "conductor-ai"
-version = "0.0.0"
+version = "0.1.0"
 description = "Local-first, resource-aware AI workload management infrastructure."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,7 +16,14 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic-settings>=2.7,<3",
+  "uvicorn>=0.34,<1",
+]
+
+[project.scripts]
+conductor-api = "conductor.main:run"
 
 [project.optional-dependencies]
 dev = [
@@ -25,11 +32,12 @@ dev = [
   "pre-commit>=4,<5",
   "pytest>=8.3,<9",
   "pytest-cov>=6,<7",
+  "httpx2>=2.7,<3",
   "ruff>=0.8,<1",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = []
+packages = ["backend/src/conductor"]
 
 [tool.black]
 line-length = 100
@@ -38,6 +46,7 @@ target-version = ["py312"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+src = ["backend/src"]
 extend-exclude = ["sources"]
 
 [tool.ruff.lint]
@@ -53,15 +62,18 @@ strict = true
 pretty = true
 show_error_codes = true
 exclude = ["^sources/"]
+mypy_path = "backend/src"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
+pythonpath = ["backend/src"]
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["backend"]
+source = ["conductor"]
 
 [tool.coverage.report]
 show_missing = true

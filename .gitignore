@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# Virtual environments and local configuration
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# JavaScript
+node_modules/
+dashboard/dist/
+*.tsbuildinfo
+
+# Models, artifacts, and runtime data
+models/
+artifacts/
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local ChatGPT/Codex project mirror metadata
+/AGENTS.md
+/sources/
+
+# Logs and temporary files
+*.log
+tmp/
+.tmp/

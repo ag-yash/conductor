@@ -1,0 +1,5 @@
+name: conductor
+
+# Services will be added with the first executable milestone. Keeping this file
+# valid and empty avoids inventing deployment boundaries before they are designed.
+services: {}

@@ -2,7 +2,7 @@
 
 Conductor is an intelligent, local-first AI workload manager for developers. It will provide a unified way to schedule, run, and observe heterogeneous AI workloads while managing limited local compute and memory responsibly.
 
-The first executable milestone provides the production-oriented control-plane shell: validated configuration, correlated structured logs, health checks, automated tests, and continuous integration. Job scheduling and AI execution are introduced in later milestones.
+Conductor currently provides a production-oriented control-plane shell plus a durable job API. Jobs are stored in SQLite, duplicate submissions are handled safely, state changes are guarded, and queued work can be inspected or cancelled. Job scheduling and AI execution are introduced in later milestones.
 
 ## Product principles
 
@@ -57,13 +57,13 @@ python -m pip install -e '.[dev]'
 make check
 ```
 
-Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/api/v1/health/live`. The [M1 getting-started guide](docs/getting-started.md) explains the endpoints and configuration in plain language.
+Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/docs`. The [getting-started guide](docs/getting-started.md) explains the process and configuration, while the [durable jobs guide](docs/jobs.md) demonstrates M2 in plain language.
 
 The dashboard toolchain will be added when its first functional milestone begins.
 
 ## Status
 
-M1 is complete: the API shell is runnable, tested, strictly typed, and checked in CI. M2 introduces durable jobs and execution attempts; the scheduler and AI runtimes remain deliberately out of scope until that state model is proven.
+M1 and M2 are complete: the control plane is runnable, and its job state is durable, duplicate-safe, tested, strictly typed, and checked in CI. M3 introduces worker processes and deterministic execution; the resource-aware scheduler and real AI runtimes remain deliberately out of scope until worker correctness is proven.
 
 ## Contributing
 

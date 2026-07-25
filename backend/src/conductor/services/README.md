@@ -1,3 +1,3 @@
 # Services
 
-Will coordinate application use cases and transaction boundaries across domain objects and interfaces. M1 has no business use cases yet.
+Coordinates application use cases and transaction boundaries without knowing HTTP or SQL details. M2 adds durable submit, inspect, list, and queued-cancellation operations.

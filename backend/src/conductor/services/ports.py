@@ -3,8 +3,8 @@
 from types import TracebackType
 from typing import Protocol, Self
 
-from conductor.domain.job import Job, JobStatus
 from conductor.domain.attempt import ExecutionAttempt
+from conductor.domain.job import Job, JobStatus
 from conductor.domain.worker import Worker
 
 

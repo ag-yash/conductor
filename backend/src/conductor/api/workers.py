@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from conductor.api.jobs import JobResponse
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.worker import Worker, WorkerStatus
-from conductor.services.workers import RegisterWorkerCommand, WorkLease, WorkerService
+from conductor.services.workers import RegisterWorkerCommand, WorkerService, WorkLease
 
 router = APIRouter(prefix="/workers", tags=["workers"])
 

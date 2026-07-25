@@ -6,6 +6,7 @@ This directory contains Conductor's reviewed product and engineering decisions. 
 
 - [`getting-started.md`](getting-started.md) explains the currently runnable milestone in plain language.
 - [`jobs.md`](jobs.md) demonstrates durable submission, duplicate protection, listing, and cancellation.
+- [`workers.md`](workers.md) explains worker registration and job leasing in plain language.
 - [`vision.md`](vision.md) freezes the V1 problem, audience, outcomes, and exclusions.
 - [`architecture.md`](architecture.md) defines component boundaries, ownership, and request flow.
 - [`domain-model.md`](domain-model.md) defines the domain vocabulary, entities, value objects, and invariants.

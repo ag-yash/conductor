@@ -19,3 +19,15 @@ class JobConflict(ServiceError):
 
 class PayloadTooLarge(ServiceError):
     """Canonical job request exceeds the configured safe limit."""
+
+
+class WorkerNotFound(ServiceError):
+    """A requested worker has never registered."""
+
+
+class WorkerConflict(ServiceError):
+    """A worker operation is stale or conflicts with its current state."""
+
+
+class AttemptNotFound(ServiceError):
+    """A worker reported an unknown attempt."""

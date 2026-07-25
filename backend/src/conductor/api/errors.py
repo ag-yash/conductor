@@ -4,11 +4,14 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from conductor.services.errors import (
+    AttemptNotFound,
     IdempotencyConflict,
     JobConflict,
     JobNotFound,
     PayloadTooLarge,
     ServiceError,
+    WorkerConflict,
+    WorkerNotFound,
 )
 
 
@@ -30,6 +33,18 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(PayloadTooLarge)
     async def payload_too_large(_request: Request, error: PayloadTooLarge) -> JSONResponse:
         return _error_response(status.HTTP_413_CONTENT_TOO_LARGE, "payload_too_large", str(error))
+
+    @app.exception_handler(WorkerNotFound)
+    async def worker_not_found(_request: Request, error: WorkerNotFound) -> JSONResponse:
+        return _error_response(status.HTTP_404_NOT_FOUND, "worker_not_found", str(error))
+
+    @app.exception_handler(AttemptNotFound)
+    async def attempt_not_found(_request: Request, error: AttemptNotFound) -> JSONResponse:
+        return _error_response(status.HTTP_404_NOT_FOUND, "attempt_not_found", str(error))
+
+    @app.exception_handler(WorkerConflict)
+    async def worker_conflict(_request: Request, error: WorkerConflict) -> JSONResponse:
+        return _error_response(status.HTTP_409_CONFLICT, "worker_conflict", str(error))
 
     @app.exception_handler(ServiceError)
     async def unexpected_service_error(_request: Request, error: ServiceError) -> JSONResponse:

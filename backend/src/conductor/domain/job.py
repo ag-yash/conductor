@@ -122,7 +122,7 @@ class Job:
         status: JobStatus,
         *,
         now: datetime | None,
-        active_attempt_id: str | None | object = ...,
+        active_attempt_id: str | object | None = ...,
     ) -> Self:
         changes: dict[str, Any] = {
             "status": status,

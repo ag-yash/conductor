@@ -1,5 +1,7 @@
 """End-to-end tests for the M3 worker control-plane contract."""
 
+from typing import cast
+
 from fastapi.testclient import TestClient
 
 from tests.test_jobs_api import JOB_REQUEST
@@ -15,13 +17,13 @@ WORKER = {
 def _register(client: TestClient) -> dict[str, object]:
     response = client.post("/api/v1/workers/register", json=WORKER)
     assert response.status_code == 201
-    return response.json()
+    return cast(dict[str, object], response.json())
 
 
 def _submit(client: TestClient, key: str = "worker-demo") -> dict[str, object]:
     response = client.post("/api/v1/jobs", headers={"Idempotency-Key": key}, json=JOB_REQUEST)
     assert response.status_code == 201
-    return response.json()
+    return cast(dict[str, object], response.json())
 
 
 def _headers(instance_id: str = "process-a") -> dict[str, str]:

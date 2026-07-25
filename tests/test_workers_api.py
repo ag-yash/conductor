@@ -1,6 +1,7 @@
 """End-to-end tests for the M3 worker control-plane contract."""
 
 from fastapi.testclient import TestClient
+
 from tests.test_jobs_api import JOB_REQUEST
 
 WORKER = {

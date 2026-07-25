@@ -112,7 +112,9 @@ class WorkerService:
         with self._uow_factory() as uow:
             attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
             try:
-                started = attempt.transition(AttemptStatus.STARTING).transition(AttemptStatus.RUNNING)
+                started = attempt.transition(AttemptStatus.STARTING).transition(
+                    AttemptStatus.RUNNING
+                )
                 job = self._job_for_attempt(uow, attempt)
                 running = job.start()
                 uow.attempts.update(started, expected_version=attempt.version)

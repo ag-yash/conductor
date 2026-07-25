@@ -6,7 +6,11 @@ from sqlmodel import Session
 
 from conductor.services.ports import AttemptRepository, JobRepository, WorkerRepository
 from conductor.storage.database import Database
-from conductor.storage.repositories import SqlAttemptRepository, SqlJobRepository, SqlWorkerRepository
+from conductor.storage.repositories import (
+    SqlAttemptRepository,
+    SqlJobRepository,
+    SqlWorkerRepository,
+)
 
 
 class SqlUnitOfWork:

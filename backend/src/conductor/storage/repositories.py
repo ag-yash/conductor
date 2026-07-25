@@ -168,7 +168,9 @@ class SqlAttemptRepository:
     def update(self, attempt: ExecutionAttempt, *, expected_version: int) -> None:
         statement = (
             update(AttemptRecord)
-            .where(col(AttemptRecord.id) == attempt.id, col(AttemptRecord.version) == expected_version)
+            .where(
+                col(AttemptRecord.id) == attempt.id, col(AttemptRecord.version) == expected_version
+            )
             .values(
                 status=attempt.status.value,
                 updated_at=attempt.updated_at,

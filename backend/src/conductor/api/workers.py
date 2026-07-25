@@ -77,7 +77,10 @@ class LeaseResponse(BaseModel):
 
     @classmethod
     def from_domain(cls, lease: WorkLease) -> "LeaseResponse":
-        return cls(job=JobResponse.from_domain(lease.job), attempt=AttemptResponse.from_domain(lease.attempt))
+        return cls(
+            job=JobResponse.from_domain(lease.job),
+            attempt=AttemptResponse.from_domain(lease.attempt),
+        )
 
 
 def _service(request: Request) -> WorkerService:

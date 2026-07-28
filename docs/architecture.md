@@ -1,8 +1,45 @@
 # V1 architecture
 
+## Architecture in one minute
+
+Think of Conductor as a small delivery company:
+
+- the **API** is the reception desk that accepts delivery requests;
+- a **job** is the durable delivery order;
+- the **scheduler** chooses which driver should receive the order;
+- a **worker** is a driver that performs the delivery;
+- an **execution attempt** records one specific try;
+- SQLite is the company record book that survives an office restart.
+
+The control plane coordinates work. It does not perform AI inference itself. Workers eventually call Ollama, ONNX Runtime, or another runtime adapter to do that heavy work.
+
+This separation matters because coordination and inference have different responsibilities. The control plane must stay responsive even when a model takes several seconds to load or a worker crashes.
+
 ## Decision
 
 Conductor V1 is a modular Python control plane with separate local worker processes. It uses one SQLite database and a bounded in-process scheduling loop. The dashboard and CLI are clients of the same versioned REST API.
+
+### What “modular monolith” means
+
+“Monolith” means the control-plane modules run as one deployed backend application. “Modular” means the code still has strict internal boundaries.
+
+```text
+One operating-system process
+┌───────────────────────────────────────────┐
+│ API → services → domain/scheduler → ports │
+│                              ↓            │
+│                         SQLite storage    │
+└───────────────────────────────────────────┘
+```
+
+This is a deliberate V1 choice:
+
+- starting the project requires one backend process rather than many services;
+- a job assignment can use one local database transaction;
+- debugging is easier because one request is not crossing several network services;
+- module boundaries still allow a component to be extracted later if measurement proves it is necessary.
+
+The trade-off is that modules share one process. A CPU-heavy operation inside the control plane could affect the whole API, which is one reason AI inference belongs in worker processes.
 
 ```mermaid
 flowchart LR
@@ -38,15 +75,38 @@ The modular monolith is a deployment choice, not permission to couple modules. D
 | `config` | typed settings, validation, environment overrides | mutable runtime state or secrets in source control |
 | `models` | persistence/serialization shapes that are not domain entities | duplicated domain behavior |
 
+### Why boundaries matter: one example
+
+Suppose we decide that a draining worker cannot receive a new job.
+
+- `api/` validates the request and returns HTTP.
+- `services/` asks for current workers and coordinates the transaction.
+- `scheduler/` contains the rule that a draining worker is ineligible.
+- `storage/` persists the decision.
+
+If that rule lived directly in a FastAPI route, a future CLI path might accidentally bypass it. Keeping the rule in the scheduler makes every caller use the same behavior.
+
 ## Runtime topology
 
 - One control-plane process owns the API, application services, scheduling loop, and database connection management.
 - One or more worker processes own runtime adapters and loaded model instances.
 - Workers initiate registration, heartbeat, lease renewal, job polling, and result reporting through the control-plane API.
-- A worker restart creates a new `epoch` for its stable configured identity. Messages from an older epoch are rejected.
+- A worker restart creates a new `worker_instance_id` for its stable configured identity. This is the same idea sometimes called an “epoch.” Messages from an older process instance are rejected.
 - Workers may execute more than one job only when their declared slot capacity and runtime adapter permit it.
 
 Worker-initiated communication avoids requiring routable inbound worker addresses and keeps a later remote-worker path possible without changing the domain model.
+
+### Why workers poll instead of receiving pushed work
+
+With polling, workers initiate the connection:
+
+```text
+Worker → “Do you have work for me?” → Control plane
+```
+
+The alternative is for the control plane to call each worker. That requires the control plane to know a reachable address for every worker and handle firewalls, ports, and worker restarts.
+
+Polling is simpler for a local-first system. Its cost is a small delay between a job arriving and the next poll. We can tune the polling interval or add a notification mechanism later without changing job correctness.
 
 ## Job request lifecycle
 
@@ -66,7 +126,7 @@ sequenceDiagram
     S->>D: Read schedulable jobs and worker snapshots
     S->>S: Filter, score, and explain
     S->>D: Atomically create attempt and assign job
-    W->>A: Poll using worker identity and epoch
+    W->>A: Poll using worker ID and process-instance ID
     A->>D: Lease assigned attempt
     W->>W: Ensure model ready; execute
     W->>A: Report guarded progress or terminal result
@@ -75,20 +135,35 @@ sequenceDiagram
 
 ## Correctness mechanisms
 
+Correctness mechanisms are protections against “works most of the time” bugs. These bugs appear when requests are repeated, workers restart, or two operations happen nearly simultaneously.
+
 ### Idempotency
 
 - Job submission accepts a client-scoped idempotency key.
 - Repeating the same key and canonical request returns the original job.
 - Reusing a key with a different canonical request is rejected.
-- Worker progress and terminal reports carry attempt identity, worker epoch, and monotonic attempt version.
+- Worker progress and terminal reports carry attempt identity, process-instance ID, and monotonic attempt version.
+
+Example:
+
+```text
+12:00:00 client submits key=abc
+12:00:01 server stores job J1, but the response is lost
+12:00:03 client retries key=abc
+12:00:03 server returns J1 instead of creating J2
+```
+
+Without idempotency, an ordinary network timeout could create duplicate expensive inference work.
 
 ### Leases and failure detection
 
 - Registration grants a renewable worker lease with a configured expiry.
-- Heartbeats report capacity and renew only the current worker epoch.
+- Heartbeats report capacity and renew only the current worker process instance.
 - Lease expiry marks the worker unreachable; it does not prove the process stopped.
 - Attempts owned by an unreachable worker become `LOST` only after their execution lease expires.
 - Retry creates a new attempt. A late result from an older attempt cannot overwrite it.
+
+A lease is temporary ownership, similar to borrowing a meeting room for a fixed period. If the lease expires, Conductor may give the job to another worker. The first worker might still be running, so a late result must be rejected rather than blindly accepted.
 
 ### Concurrency control
 
@@ -97,6 +172,20 @@ sequenceDiagram
 - Only one active attempt is allowed per job.
 - Terminal states are immutable.
 - Cancellation and completion race through guarded transitions; the first valid committed terminal outcome wins.
+
+Example with optimistic versions:
+
+```text
+Database contains job version 4
+
+Scheduler reads version 4 ── tries to assign
+User reads version 4 ─────── tries to cancel
+
+First committed update changes version 4 → 5
+Second update expects version 4 and is rejected
+```
+
+This prevents the second writer from silently overwriting the first writer’s newer decision.
 
 ### Queue recovery
 
@@ -113,6 +202,15 @@ Hard constraints run before scoring. Scores never make an ineligible worker elig
 
 The first policy is intentionally heuristic, not machine-learned. A benchmark can later compare policies using recorded scheduling inputs without coupling the control plane to one implementation.
 
+### Policy versus mechanism
+
+- **Policy** answers: “Which worker should win?”
+- **Mechanism** answers: “How do we read workers, save the attempt, and commit the transaction?”
+
+`scheduler/policy.py` owns policy. `services/workers.py` owns the mechanism around it.
+
+Separating them lets us test scheduling with plain Python objects. A test does not need to start FastAPI or create SQLite tables just to prove that a full worker is ineligible.
+
 ## Data boundaries
 
 - SQLite stores metadata, state transitions, configuration references, and result metadata.
@@ -126,3 +224,22 @@ Structured logs contain correlation fields including `job_id`, `attempt_id`, `wo
 ## Security posture for local V1
 
 Conductor binds to loopback by default. It does not execute arbitrary shell commands, accept arbitrary runtime imports, or expose unrestricted host paths. Runtime adapters and model definitions come from trusted local configuration. Authentication is excluded only while the product remains loopback-only and single-user.
+
+## What happens when something fails?
+
+| Failure | Desired behavior |
+| --- | --- |
+| API restarts | Jobs remain in SQLite and can be recovered |
+| Client retries submission | Same idempotency key returns the original job |
+| Worker restarts | New process-instance ID replaces the old one |
+| Old worker sends a late result | Control plane rejects the stale process or attempt |
+| All workers are full | Job stays queued and the reason is recorded |
+| Two workers try to claim one job | Optimistic version check allows only one assignment |
+
+## Questions to check your understanding
+
+1. Why is inference executed in workers instead of inside the FastAPI request?
+2. What simplicity do we gain from a modular monolith?
+3. Why is SQLite, rather than an in-memory queue, the recovery source of truth?
+4. What bug does `worker_instance_id` prevent?
+5. Why must attempt creation and job assignment share one transaction?

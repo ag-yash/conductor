@@ -31,6 +31,31 @@ The selected worker gets a lease and finishes the job
 
 The important rule is: **an API route should not contain business rules or SQL.** It validates input, calls a service, and converts the result to a response. This keeps the same rules reusable by a future CLI or dashboard.
 
+## Repository map
+
+```text
+Conductor/
+├── backend/
+│   ├── migrations/          versioned SQLite schema changes
+│   └── src/conductor/
+│       ├── api/             HTTP request and response boundary
+│       ├── config/          validated environment settings
+│       ├── core/            logging and request context
+│       ├── domain/          Job, Worker, and Attempt rules
+│       ├── models/          SQLModel database record shapes
+│       ├── scheduler/       pure placement policy
+│       ├── services/        use cases and repository interfaces
+│       ├── storage/         SQLite repositories and transactions
+│       └── workers/         local worker process code as it grows
+├── docs/                    product, learning, and design documents
+├── tests/                   unit and integration tests
+├── pyproject.toml           package, dependencies, and tool settings
+├── Makefile                 common developer commands
+└── docker-compose.yml       reproducible process setup
+```
+
+Do not try to read every file from top to bottom. Pick one behavior and trace it across layers.
+
 ## A feature, end to end
 
 Use M4 scheduling as the example. Read these files in this order:
@@ -44,6 +69,42 @@ Use M4 scheduling as the example. Read these files in this order:
 
 That order is useful for every future feature: start with the rule, then the use case, then persistence and HTTP, then the test.
 
+## Trace 1: submitting a job
+
+```text
+POST /jobs
+   ↓ api/jobs.py validates JSON and header
+JobService.submit()
+   ↓ computes canonical request hash
+Job.create()
+   ↓ creates a valid immutable queued job
+SqlJobRepository.add()
+   ↓ translates domain object to JobRecord
+SQLite transaction commits
+   ↓
+JobResponse returns JSON
+```
+
+The API knows HTTP. The domain knows legal state. The repository knows SQL. The service connects them.
+
+## Trace 2: a worker receives a job
+
+```text
+POST /workers/{id}/leases/next
+   ↓
+WorkerService verifies the current process-instance ID
+   ↓
+Repositories read queued jobs, workers, and active attempts
+   ↓
+PlacementPolicy returns a selected worker plus explanations
+   ↓
+Service creates attempt + assigns job + stores decision
+   ↓
+One transaction commits all three writes
+```
+
+The transaction is the key correctness boundary. If only one of those writes were saved, the database could contradict itself.
+
 ## Important code patterns
 
 ### Domain objects are immutable
@@ -51,6 +112,14 @@ That order is useful for every future feature: start with the rule, then the use
 `Job`, `Worker`, and `ExecutionAttempt` are frozen dataclasses. A method like `job.assign(...)` returns a **new** job rather than changing the old one in place.
 
 Why? It makes transitions explicit and gives us a version number for safe concurrent updates.
+
+Example:
+
+```python
+assigned = queued.assign(attempt_id)
+```
+
+After this line, `queued` still represents the old snapshot and `assigned` is the new version. The repository updates the database using `queued.version` as the expected value.
 
 ### Services own transactions
 
@@ -66,9 +135,33 @@ They either all succeed together or none of them do. That is what prevents two w
 
 `services/ports.py` says what storage operations the application needs. `storage/repositories.py` provides the SQLite version. This means the service code does not depend directly on SQLModel.
 
+This is dependency inversion in practical form:
+
+```text
+High-level JobService → JobRepository interface ← SQLite implementation
+```
+
+The arrow of source-code dependency points toward the small interface, not from the service to a concrete database library.
+
 ### Scheduler policy stays pure
 
 `PlacementPolicy.decide()` accepts a job and worker snapshots, then returns a `PlacementDecision`. It does not write to the database. A pure function is easy to test because the same input always gives the same output.
+
+### API schemas are boundary objects
+
+Pydantic request models reject malformed external input. Response models deliberately choose which fields are public.
+
+They are not the domain model. An API can evolve its JSON representation without giving up the internal state rules.
+
+### Errors become stable HTTP responses at one boundary
+
+Services raise meaningful application errors such as `JobNotFound` or `WorkerConflict`. `api/errors.py` translates them into status codes and stable error codes.
+
+Keeping translation central prevents one route from returning `404` while another returns `500` for the same kind of failure.
+
+### Migrations are append-only schema history
+
+`backend/migrations/versions/` contains numbered database changes. An existing developer database may already have migrations `0001` and `0002`, so adding a table requires `0003` rather than rewriting history.
 
 ## M1–M4 map
 
@@ -78,6 +171,32 @@ They either all succeed together or none of them do. That is what prevents two w
 | M2 | Jobs survive restart | `domain/job.py`, `services/jobs.py` |
 | M3 | Workers safely lease and finish jobs | `domain/worker.py`, `services/workers.py` |
 | M4 | Placement decisions are fair and explainable | `scheduler/policy.py` |
+
+## How to read a test
+
+An integration test usually follows Arrange–Act–Assert:
+
+```text
+Arrange: register workers and submit jobs
+Act:     ask a worker for its next lease
+Assert:  check the selected worker and saved explanation
+```
+
+Read the test function name first. Then identify these three sections. The test describes the system contract; implementation details may change while that contract remains stable.
+
+## How to study one decision
+
+For any non-trivial code path, answer:
+
+1. What problem does this solve?
+2. Which layer owns the rule?
+3. What must always remain true?
+4. What happens if two callers act concurrently?
+5. What persists after restart?
+6. What failure is returned to the caller?
+7. What simpler or more complex alternative exists?
+
+If an answer is missing, update this guide or the relevant feature document.
 
 ## How we will update this guide
 
@@ -89,3 +208,11 @@ Every milestone will add:
 4. A plain-language API or demo document when the feature is visible to a user.
 
 If you want personal scratch notes, create a local `notes/` directory and add it to your own global Git ignore file. The guide above should stay committed because it is part of making Conductor understandable as an open-source project.
+
+## Questions to check your understanding
+
+1. Why is SQL located in `storage/` rather than `services/`?
+2. Why does the domain not import FastAPI?
+3. Which code owns transaction boundaries?
+4. How would a future CLI reuse current job rules?
+5. Which test would you read first to understand scheduler capacity?

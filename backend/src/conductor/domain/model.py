@@ -3,7 +3,7 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
-from typing import Self
+from typing import Any, Self
 
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import utc_now
@@ -192,7 +192,7 @@ class ModelResidency:
         status: ResidencyStatus,
         *,
         now: datetime,
-        **changes: object,
+        **changes: Any,
     ) -> Self:
         if status not in _RESIDENCY_TRANSITIONS.get(self.status, frozenset()):
             raise InvalidStateTransition("model residency", self.status, status)

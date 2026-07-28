@@ -4,15 +4,51 @@
 
 Conductor is a local-first control plane that queues AI inference jobs, selects an eligible local worker using explainable resource-aware scheduling, manages model residency, and exposes execution health through one API, CLI, and dashboard.
 
+## The same definition in simpler words
+
+A developer may run several AI tools locally. Each tool may use a different command, API, model format, and amount of memory.
+
+Conductor provides one coordinator:
+
+```text
+Developer sends one job
+          ↓
+Conductor remembers it
+          ↓
+Conductor chooses a suitable local worker
+          ↓
+Worker runs the requested AI model
+          ↓
+Conductor records the result and operational history
+```
+
+“Local-first” means the useful V1 system runs on one developer machine without requiring a cloud account or hardware purchase.
+
 ## Problem
 
 Developers running local AI tools currently manage separate processes, APIs, model lifecycles, and resource limits. This creates avoidable cold starts, memory pressure, inconsistent observability, and manual recovery after failures.
 
 Conductor provides one operational layer above heterogeneous runtimes. The runtimes perform inference; Conductor owns reliable execution and resource decisions.
 
+### Example problem
+
+Without Conductor, a developer might manually run:
+
+```bash
+ollama serve
+python whisper_server.py
+python embedding_server.py
+```
+
+The developer must remember ports, check which processes are healthy, avoid loading too many models, and retry work after crashes.
+
+With Conductor, those runtime differences eventually sit behind one job contract. Conductor does not replace Ollama or ONNX Runtime; it coordinates them.
+
 ## Primary user
 
 A developer running multiple local AI workloads on one laptop who wants repeatable execution and visibility without operating a cluster.
+
+The V1 user is intentionally single-machine and single-user. This lets us study scheduling, durability, failure recovery, process coordination, and model lifecycle without adding authentication or multi-host networking first.
 
 ## V1 success criteria
 
@@ -47,7 +83,7 @@ V1 is complete when a fresh contributor can run Conductor locally and demonstrat
 
 ### Workers and runtimes
 
-- Multiple local worker processes with registration, epoch-based identity, heartbeats, graceful drain, and lease expiry.
+- Multiple local worker processes with registration, process-instance identity, heartbeats, graceful drain, and lease expiry.
 - A deterministic fixture runtime for tests and demonstrations of failure behavior.
 - At least two real, heterogeneous local runtime adapters before V1 release: an Ollama-compatible text runtime and an ONNX Runtime workload.
 - Explicit load, ready, idle, and unload behavior behind a common runtime contract.
@@ -84,6 +120,33 @@ These exclusions protect the central claim: Conductor reliably manages heterogen
 5. **Prove behavior.** Failure injection and deterministic runtimes are first-class test tools.
 6. **Earn complexity.** A new dependency or process boundary requires a measured V1 need.
 
+### What these principles prevent
+
+| Principle | Prevents |
+| --- | --- |
+| Explain decisions | “The scheduler chose it somehow” behavior |
+| Fail conservatively | Assigning work using stale or unknown capacity |
+| Keep truth durable | Losing queued work when the process restarts |
+| Separate policy from mechanism | Scheduling rules coupled to FastAPI or SQL |
+| Prove behavior | Failure recovery that exists only in a diagram |
+| Earn complexity | Adding Kafka, Redis, or Kubernetes without a real need |
+
 ## Release boundary
 
-The resume-ready release is `v1.0.0`. Later improvements are new product capabilities, not unfinished V1 work. Documentation and UI must describe only behavior that the release actually implements.
+The complete initial release is `v1.0.0`. Later improvements are new product capabilities, not unfinished V1 work. Documentation and UI must describe only behavior that the release actually implements.
+
+## Why important alternatives are excluded
+
+- **No Kubernetes:** local worker processes already let us study scheduling and failure handling. Kubernetes would add deployment complexity before it solves a V1 need.
+- **No Kafka:** SQLite is the durable source of truth and current event volume is local-machine scale.
+- **No arbitrary code execution:** accepting shell commands would create a much larger security boundary than trusted model adapters.
+- **No workflow DAGs:** one durable inference job is enough to prove the execution platform before coordinating multi-step workflows.
+- **No predictive scheduler:** deterministic heuristics are easier to explain, test, and benchmark first.
+
+## Questions to check your understanding
+
+1. What does Conductor coordinate that Ollama itself does not?
+2. Why is local-first a useful constraint rather than merely a limitation?
+3. Why does V1 use trusted runtime adapters instead of arbitrary scripts?
+4. Why is explainability a product principle for the scheduler?
+5. Name one excluded technology and the evidence we would need before adding it.

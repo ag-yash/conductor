@@ -9,10 +9,12 @@ from fastapi import FastAPI
 from conductor.api.errors import register_error_handlers
 from conductor.api.health import router as health_router
 from conductor.api.jobs import router as jobs_router
+from conductor.api.workers import router as workers_router
 from conductor.config.settings import Settings, get_settings
 from conductor.core.logging import configure_logging
 from conductor.core.request_context import RequestContextMiddleware
 from conductor.services.jobs import JobService
+from conductor.services.workers import WorkerService
 from conductor.storage.database import Database
 from conductor.storage.migrations import run_migrations
 from conductor.storage.unit_of_work import SqlUnitOfWork
@@ -51,10 +53,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lambda: SqlUnitOfWork(database),
         max_payload_bytes=resolved_settings.max_job_payload_bytes,
     )
+    application.state.worker_service = WorkerService(lambda: SqlUnitOfWork(database))
     application.add_middleware(RequestContextMiddleware)
     register_error_handlers(application)
     application.include_router(health_router, prefix=resolved_settings.api_prefix)
     application.include_router(jobs_router, prefix=resolved_settings.api_prefix)
+    application.include_router(workers_router, prefix=resolved_settings.api_prefix)
     return application
 
 

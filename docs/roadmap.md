@@ -19,13 +19,13 @@ Demo: start the control plane and inspect build/readiness information.
 
 Demo: submit duplicate-safe jobs and restart without losing them.
 
-## M3 — Worker leases and deterministic execution
+## M3 — Worker leases and deterministic execution 🚧
 
-- Worker registration, epochs, heartbeat leases, drain behavior, and polling.
-- Deterministic fixture runtime and local worker process.
-- Attempt leasing, progress, results, and late-message rejection.
+- Worker registration, `worker_instance_id`, heartbeats, drain behavior, and polling.
+- Deterministic control-plane execution path: lease → start → complete.
+- Current-process checks reject stale messages after a worker restarts.
 
-Demo: execute jobs, terminate a worker, and observe safe recovery.
+Demo: register a worker, lease a job, run it through a predictable success path, and show that an old process cannot report work after a restart.
 
 ## M4 — Explainable resource-aware scheduling
 

@@ -110,6 +110,13 @@ class Job:
             raise InvalidStateTransition("job", self.status, JobStatus.QUEUED)
         return self._transition(JobStatus.QUEUED, now=now, active_attempt_id=None)
 
+    def succeed(self, *, now: datetime | None = None) -> Self:
+        """Mark the current running job as successfully completed."""
+
+        if self.status is not JobStatus.RUNNING:
+            raise InvalidStateTransition("job", self.status, JobStatus.SUCCEEDED)
+        return self._transition(JobStatus.SUCCEEDED, now=now, active_attempt_id=None)
+
     def cancel(self, *, now: datetime | None = None) -> Self:
         if self.status is JobStatus.CANCELLED:
             return self

@@ -50,3 +50,19 @@ class AttemptRecord(SQLModel, table=True):
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     version: int
+
+
+class WorkerRecord(SQLModel, table=True):
+    """Durable registration for one logical worker's current process."""
+
+    __tablename__ = "workers"
+    __table_args__ = (Index("ix_workers_status", "status"),)
+
+    id: str = Field(primary_key=True)
+    instance_id: str
+    supported_tasks: list[str] = Field(sa_column=Column(JSON, nullable=False))
+    max_parallel_jobs: int
+    status: str
+    registered_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    last_heartbeat_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    version: int

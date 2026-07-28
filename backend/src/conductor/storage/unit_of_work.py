@@ -4,9 +4,13 @@ from types import TracebackType
 
 from sqlmodel import Session
 
-from conductor.services.ports import JobRepository
+from conductor.services.ports import AttemptRepository, JobRepository, WorkerRepository
 from conductor.storage.database import Database
-from conductor.storage.repositories import SqlJobRepository
+from conductor.storage.repositories import (
+    SqlAttemptRepository,
+    SqlJobRepository,
+    SqlWorkerRepository,
+)
 
 
 class SqlUnitOfWork:
@@ -16,10 +20,14 @@ class SqlUnitOfWork:
         self._database = database
         self._session: Session | None = None
         self.jobs: JobRepository
+        self.attempts: AttemptRepository
+        self.workers: WorkerRepository
 
     def __enter__(self) -> "SqlUnitOfWork":
         self._session = self._database.session()
         self.jobs = SqlJobRepository(self._session)
+        self.attempts = SqlAttemptRepository(self._session)
+        self.workers = SqlWorkerRepository(self._session)
         return self
 
     def __exit__(

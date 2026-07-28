@@ -171,6 +171,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M2 | Jobs survive restart | `domain/job.py`, `services/jobs.py` |
 | M3 | Workers safely lease and finish jobs | `domain/worker.py`, `services/workers.py` |
 | M4 | Placement decisions are fair and explainable | `scheduler/policy.py` |
+| M5 (current) | Models are configured separately from loaded runtime state | `domain/model.py`, `runtime/base.py` |
 
 ## How to read a test
 

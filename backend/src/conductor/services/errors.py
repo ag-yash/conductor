@@ -31,3 +31,11 @@ class WorkerConflict(ServiceError):
 
 class AttemptNotFound(ServiceError):
     """A worker reported an unknown attempt."""
+
+
+class ModelNotFound(ServiceError):
+    """A requested model definition does not exist."""
+
+
+class ModelConflict(ServiceError):
+    """A model identity is already registered or cannot be changed safely."""

@@ -12,11 +12,12 @@ If this is your first time reading the project:
 4. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
 5. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
 6. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
-7. [`state-machines.md`](state-machines.md) — understand legal status changes.
-8. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-9. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-10. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-11. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+7. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
+8. [`state-machines.md`](state-machines.md) — understand legal status changes.
+9. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+10. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+11. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+12. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

@@ -81,3 +81,20 @@ class SchedulingDecisionRecord(SQLModel, table=True):
     reason: str
     candidates: list[dict[str, Any]] = Field(sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class ModelDefinitionRecord(SQLModel, table=True):
+    """Durable trusted configuration for one model revision."""
+
+    __tablename__ = "model_definitions"
+
+    id: str = Field(primary_key=True)
+    display_name: str
+    runtime_kind: str
+    artifact: str
+    supported_tasks: list[str] = Field(sa_column=Column(JSON, nullable=False))
+    expected_memory_bytes: int
+    idle_timeout_seconds: int
+    enabled: bool
+    revision: int
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))

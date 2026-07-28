@@ -27,13 +27,13 @@ Demo: submit duplicate-safe jobs and restart without losing them.
 
 Demo: register a worker, lease a job, run it through a predictable success path, and show that an old process cannot report work after a restart.
 
-## M4 — Explainable resource-aware scheduling
+## M4 — Explainable resource-aware scheduling 🚧
 
-- Eligibility constraints and immutable scheduling snapshots.
-- Deterministic scoring, stable tie-breaking, capacity reservation, and deferral reasons.
-- Retry decisions and bounded backoff.
+- Eligibility constraints based on task support, worker state, and free execution slots.
+- Deterministic least-loaded choice with worker-ID tie-breaking and immutable decision records.
+- A job endpoint that shows why each worker was accepted or rejected.
 
-Demo: show why one worker wins and why an unschedulable job waits.
+Demo: fill one worker, submit another job, and show that Conductor chooses the available worker with an inspectable explanation.
 
 ## M5 — Heterogeneous AI runtimes and model lifecycle
 

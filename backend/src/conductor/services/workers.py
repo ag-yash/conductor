@@ -8,7 +8,14 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.worker import Worker, WorkerStatus
-from conductor.services.errors import AttemptNotFound, JobConflict, WorkerConflict, WorkerNotFound
+from conductor.scheduler.policy import PlacementPolicy, RecordedSchedulingDecision, WorkerSnapshot
+from conductor.services.errors import (
+    AttemptNotFound,
+    JobConflict,
+    JobNotFound,
+    WorkerConflict,
+    WorkerNotFound,
+)
 from conductor.services.ports import UnitOfWork
 from conductor.storage.errors import ConcurrentUpdate
 
@@ -34,8 +41,13 @@ class WorkLease:
 class WorkerService:
     """Coordinate control-plane operations initiated by local workers."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        policy: PlacementPolicy | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
+        self._policy = policy or PlacementPolicy()
 
     def register(self, command: RegisterWorkerCommand) -> Worker:
         with self._uow_factory() as uow:
@@ -92,6 +104,29 @@ class WorkerService:
             if job is None:
                 return None
 
+            snapshots = [
+                WorkerSnapshot(
+                    worker=candidate,
+                    active_slots=uow.attempts.count_active_for_worker(
+                        candidate.id, candidate.instance_id
+                    ),
+                )
+                for candidate in uow.workers.list()
+            ]
+            decision = self._policy.decide(job, snapshots)
+            if decision.selected_worker_id != worker.id:
+                outcome = (
+                    "deferred" if decision.selected_worker_id is None else "selected_other_worker"
+                )
+                uow.scheduling_decisions.add(
+                    decision_id=str(uuid4()),
+                    job_id=job.id,
+                    decision=decision,
+                    outcome=outcome,
+                )
+                uow.commit()
+                return None
+
             attempt = ExecutionAttempt.create(
                 attempt_id=str(uuid4()),
                 job_id=job.id,
@@ -103,6 +138,12 @@ class WorkerService:
             try:
                 uow.attempts.add(attempt)
                 uow.jobs.update(assigned, expected_version=job.version)
+                uow.scheduling_decisions.add(
+                    decision_id=str(uuid4()),
+                    job_id=job.id,
+                    decision=decision,
+                    outcome="assigned",
+                )
                 uow.commit()
             except ConcurrentUpdate as error:
                 raise WorkerConflict("job was assigned by another worker; poll again") from error
@@ -137,6 +178,14 @@ class WorkerService:
             except (ConcurrentUpdate, InvalidStateTransition) as error:
                 raise WorkerConflict("attempt could not be completed") from error
             return succeeded
+
+    def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
+        """Return stored scheduling explanations after confirming the job exists."""
+
+        with self._uow_factory() as uow:
+            if uow.jobs.get(job_id) is None:
+                raise JobNotFound(f"job {job_id} was not found")
+            return uow.scheduling_decisions.list_for_job(job_id)
 
     @staticmethod
     def _current_worker(worker: Worker | None, instance_id: str) -> Worker:

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from conductor.domain.job import Job, JobPriority, JobStatus
 from conductor.services.jobs import JobService, SubmitJobCommand
+from conductor.services.workers import WorkerService
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -67,8 +68,34 @@ class JobListResponse(BaseModel):
     offset: int
 
 
+class CandidateExplanationResponse(BaseModel):
+    """One human-readable reason a worker was or was not eligible."""
+
+    worker_id: str
+    eligible: bool
+    reason: str
+    active_slots: int
+    max_parallel_jobs: int
+
+
+class SchedulingDecisionResponse(BaseModel):
+    """An immutable explanation of one scheduling evaluation."""
+
+    id: str
+    selected_worker_id: str | None
+    outcome: str
+    reason: str
+    candidates: list[CandidateExplanationResponse]
+    created_at: datetime
+
+
 def _service(request: Request) -> JobService:
     service: JobService = request.app.state.job_service
+    return service
+
+
+def _worker_service(request: Request) -> WorkerService:
+    service: WorkerService = request.app.state.worker_service
     return service
 
 
@@ -106,6 +133,31 @@ def submit_job(
 @router.get("/{job_id}", response_model=JobResponse)
 def get_job(job_id: str, request: Request) -> JobResponse:
     return JobResponse.from_domain(_service(request).get(job_id))
+
+
+@router.get("/{job_id}/scheduling-decisions", response_model=list[SchedulingDecisionResponse])
+def list_scheduling_decisions(job_id: str, request: Request) -> list[SchedulingDecisionResponse]:
+    decisions = _worker_service(request).decisions_for_job(job_id)
+    return [
+        SchedulingDecisionResponse(
+            id=decision.id,
+            selected_worker_id=decision.selected_worker_id,
+            outcome=decision.outcome,
+            reason=decision.reason,
+            candidates=[
+                CandidateExplanationResponse(
+                    worker_id=candidate.worker_id,
+                    eligible=candidate.eligible,
+                    reason=candidate.reason,
+                    active_slots=candidate.active_slots,
+                    max_parallel_jobs=candidate.max_parallel_jobs,
+                )
+                for candidate in decision.candidates
+            ],
+            created_at=decision.created_at,
+        )
+        for decision in decisions
+    ]
 
 
 @router.get("", response_model=JobListResponse)

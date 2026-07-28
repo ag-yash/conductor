@@ -31,6 +31,8 @@ class SqlUnitOfWork:
         self.scheduling_decisions: SchedulingDecisionRepository
 
     def __enter__(self) -> "SqlUnitOfWork":
+        # Every repository below shares one SQLite session. That gives a service one
+        # all-or-nothing transaction boundary across jobs, attempts, and decisions.
         self._session = self._database.session()
         self.jobs = SqlJobRepository(self._session)
         self.attempts = SqlAttemptRepository(self._session)

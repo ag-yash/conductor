@@ -8,6 +8,7 @@ This directory contains Conductor's reviewed product and engineering decisions. 
 - [`jobs.md`](jobs.md) demonstrates durable submission, duplicate protection, listing, and cancellation.
 - [`workers.md`](workers.md) explains worker registration and job leasing in plain language.
 - [`scheduling.md`](scheduling.md) explains how M4 selects workers and records reasons.
+- [`codebase-guide.md`](codebase-guide.md) is the plain-English map of how the code is structured and how to read a feature.
 - [`vision.md`](vision.md) freezes the V1 problem, audience, outcomes, and exclusions.
 - [`architecture.md`](architecture.md) defines component boundaries, ownership, and request flow.
 - [`domain-model.md`](domain-model.md) defines the domain vocabulary, entities, value objects, and invariants.

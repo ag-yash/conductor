@@ -191,6 +191,8 @@ class SqlAttemptRepository:
             raise ConcurrentUpdate(f"attempt {attempt.id} changed concurrently")
 
     def count_active_for_worker(self, worker_id: str, instance_id: str) -> int:
+        # We count only leases that still consume a slot. Finished attempts remain in
+        # the database as history but must not make a worker look permanently busy.
         active = (
             AttemptStatus.ASSIGNED.value,
             AttemptStatus.STARTING.value,
@@ -264,6 +266,8 @@ class SqlSchedulingDecisionRepository:
         decision: PlacementDecision,
         outcome: str,
     ) -> None:
+        # Store a JSON snapshot, not live Worker objects. Later heartbeats must not
+        # rewrite the explanation for a decision that already happened.
         self._session.add(
             SchedulingDecisionRecord(
                 id=decision_id,

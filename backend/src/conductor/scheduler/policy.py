@@ -55,6 +55,7 @@ class PlacementPolicy:
         explanations: list[CandidateExplanation] = []
         eligible: list[WorkerSnapshot] = []
 
+        # Sort first so that identical inputs always produce identical explanations.
         for snapshot in sorted(snapshots, key=lambda item: item.worker.id):
             worker = snapshot.worker
             reason = self._ineligibility_reason(job, snapshot)
@@ -77,6 +78,8 @@ class PlacementPolicy:
                 candidates=tuple(explanations),
             )
 
+        # Hard constraints ran above. Only now do we score eligible workers. The
+        # worker ID is a stable tie-breaker when their load ratios are equal.
         selected = min(
             eligible,
             key=lambda item: (
@@ -98,5 +101,6 @@ class PlacementPolicy:
         if job.task not in worker.supported_tasks:
             return "task_not_supported"
         if snapshot.active_slots >= worker.max_parallel_jobs:
+            # A full worker is healthy; it simply cannot accept one more lease now.
             return "no_free_slots"
         return None

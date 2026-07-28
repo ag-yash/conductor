@@ -9,7 +9,17 @@ from sqlmodel import Session, col, select
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.job import Job, JobPriority, JobStatus
 from conductor.domain.worker import Worker, WorkerStatus
-from conductor.models.records import AttemptRecord, JobRecord, WorkerRecord
+from conductor.models.records import (
+    AttemptRecord,
+    JobRecord,
+    SchedulingDecisionRecord,
+    WorkerRecord,
+)
+from conductor.scheduler.policy import (
+    CandidateExplanation,
+    PlacementDecision,
+    RecordedSchedulingDecision,
+)
 from conductor.storage.errors import ConcurrentUpdate, DuplicateIdempotencyKey
 
 
@@ -180,6 +190,21 @@ class SqlAttemptRepository:
         if self._session.exec(statement).rowcount != 1:
             raise ConcurrentUpdate(f"attempt {attempt.id} changed concurrently")
 
+    def count_active_for_worker(self, worker_id: str, instance_id: str) -> int:
+        # We count only leases that still consume a slot. Finished attempts remain in
+        # the database as history but must not make a worker look permanently busy.
+        active = (
+            AttemptStatus.ASSIGNED.value,
+            AttemptStatus.STARTING.value,
+            AttemptStatus.RUNNING.value,
+        )
+        statement = select(AttemptRecord).where(
+            AttemptRecord.worker_id == worker_id,
+            AttemptRecord.worker_instance_id == instance_id,
+            col(AttemptRecord.status).in_(active),
+        )
+        return len(self._session.exec(statement).all())
+
 
 class SqlWorkerRepository:
     """Persist the one current process instance for every worker identity."""
@@ -205,6 +230,11 @@ class SqlWorkerRepository:
             )
         )
 
+    def list(self) -> list[Worker]:
+        return [
+            _worker_to_domain(record) for record in self._session.exec(select(WorkerRecord)).all()
+        ]
+
     def update(self, worker: Worker, *, expected_version: int) -> None:
         statement = (
             update(WorkerRecord)
@@ -220,3 +250,69 @@ class SqlWorkerRepository:
         )
         if self._session.exec(statement).rowcount != 1:
             raise ConcurrentUpdate(f"worker {worker.id} changed concurrently")
+
+
+class SqlSchedulingDecisionRepository:
+    """Persist append-only scheduling explanations for operators and tests."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(
+        self,
+        *,
+        decision_id: str,
+        job_id: str,
+        decision: PlacementDecision,
+        outcome: str,
+    ) -> None:
+        # Store a JSON snapshot, not live Worker objects. Later heartbeats must not
+        # rewrite the explanation for a decision that already happened.
+        self._session.add(
+            SchedulingDecisionRecord(
+                id=decision_id,
+                job_id=job_id,
+                selected_worker_id=decision.selected_worker_id,
+                outcome=outcome,
+                reason=decision.reason,
+                candidates=[
+                    {
+                        "worker_id": candidate.worker_id,
+                        "eligible": candidate.eligible,
+                        "reason": candidate.reason,
+                        "active_slots": candidate.active_slots,
+                        "max_parallel_jobs": candidate.max_parallel_jobs,
+                    }
+                    for candidate in decision.candidates
+                ],
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    def list_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
+        statement = (
+            select(SchedulingDecisionRecord)
+            .where(SchedulingDecisionRecord.job_id == job_id)
+            .order_by(col(SchedulingDecisionRecord.created_at).asc())
+        )
+        return [
+            RecordedSchedulingDecision(
+                id=record.id,
+                job_id=record.job_id,
+                selected_worker_id=record.selected_worker_id,
+                outcome=record.outcome,
+                reason=record.reason,
+                candidates=tuple(
+                    CandidateExplanation(
+                        worker_id=candidate["worker_id"],
+                        eligible=candidate["eligible"],
+                        reason=candidate["reason"],
+                        active_slots=candidate["active_slots"],
+                        max_parallel_jobs=candidate["max_parallel_jobs"],
+                    )
+                    for candidate in record.candidates
+                ),
+                created_at=_aware(record.created_at),
+            )
+            for record in self._session.exec(statement).all()
+        ]

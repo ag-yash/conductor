@@ -4,11 +4,17 @@ from types import TracebackType
 
 from sqlmodel import Session
 
-from conductor.services.ports import AttemptRepository, JobRepository, WorkerRepository
+from conductor.services.ports import (
+    AttemptRepository,
+    JobRepository,
+    SchedulingDecisionRepository,
+    WorkerRepository,
+)
 from conductor.storage.database import Database
 from conductor.storage.repositories import (
     SqlAttemptRepository,
     SqlJobRepository,
+    SqlSchedulingDecisionRepository,
     SqlWorkerRepository,
 )
 
@@ -22,12 +28,16 @@ class SqlUnitOfWork:
         self.jobs: JobRepository
         self.attempts: AttemptRepository
         self.workers: WorkerRepository
+        self.scheduling_decisions: SchedulingDecisionRepository
 
     def __enter__(self) -> "SqlUnitOfWork":
+        # Every repository below shares one SQLite session. That gives a service one
+        # all-or-nothing transaction boundary across jobs, attempts, and decisions.
         self._session = self._database.session()
         self.jobs = SqlJobRepository(self._session)
         self.attempts = SqlAttemptRepository(self._session)
         self.workers = SqlWorkerRepository(self._session)
+        self.scheduling_decisions = SqlSchedulingDecisionRepository(self._session)
         return self
 
     def __exit__(

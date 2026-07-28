@@ -66,3 +66,18 @@ class WorkerRecord(SQLModel, table=True):
     registered_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     last_heartbeat_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     version: int
+
+
+class SchedulingDecisionRecord(SQLModel, table=True):
+    """Immutable explanation for one job-placement evaluation."""
+
+    __tablename__ = "scheduling_decisions"
+    __table_args__ = (Index("ix_scheduling_decisions_job_created", "job_id", "created_at"),)
+
+    id: str = Field(primary_key=True)
+    job_id: str = Field(foreign_key="jobs.id")
+    selected_worker_id: str | None = Field(default=None)
+    outcome: str
+    reason: str
+    candidates: list[dict[str, Any]] = Field(sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))

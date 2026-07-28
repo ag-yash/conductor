@@ -6,6 +6,7 @@ from typing import Protocol, Self
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.worker import Worker
+from conductor.scheduler.policy import PlacementDecision, RecordedSchedulingDecision
 
 
 class JobRepository(Protocol):
@@ -33,6 +34,8 @@ class AttemptRepository(Protocol):
 
     def update(self, attempt: ExecutionAttempt, *, expected_version: int) -> None: ...
 
+    def count_active_for_worker(self, worker_id: str, instance_id: str) -> int: ...
+
 
 class WorkerRepository(Protocol):
     """Worker registration persistence needed by worker operations."""
@@ -43,6 +46,23 @@ class WorkerRepository(Protocol):
 
     def update(self, worker: Worker, *, expected_version: int) -> None: ...
 
+    def list(self) -> list[Worker]: ...
+
+
+class SchedulingDecisionRepository(Protocol):
+    """Append-only records that explain scheduler outcomes."""
+
+    def add(
+        self,
+        *,
+        decision_id: str,
+        job_id: str,
+        decision: PlacementDecision,
+        outcome: str,
+    ) -> None: ...
+
+    def list_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]: ...
+
 
 class UnitOfWork(Protocol):
     """One atomic application transaction."""
@@ -50,6 +70,7 @@ class UnitOfWork(Protocol):
     jobs: JobRepository
     attempts: AttemptRepository
     workers: WorkerRepository
+    scheduling_decisions: SchedulingDecisionRepository
 
     def __enter__(self) -> Self: ...
 

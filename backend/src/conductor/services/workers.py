@@ -8,7 +8,14 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.worker import Worker, WorkerStatus
-from conductor.services.errors import AttemptNotFound, JobConflict, WorkerConflict, WorkerNotFound
+from conductor.scheduler.policy import PlacementPolicy, RecordedSchedulingDecision, WorkerSnapshot
+from conductor.services.errors import (
+    AttemptNotFound,
+    JobConflict,
+    JobNotFound,
+    WorkerConflict,
+    WorkerNotFound,
+)
 from conductor.services.ports import UnitOfWork
 from conductor.storage.errors import ConcurrentUpdate
 
@@ -34,8 +41,13 @@ class WorkLease:
 class WorkerService:
     """Coordinate control-plane operations initiated by local workers."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        policy: PlacementPolicy | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
+        self._policy = policy or PlacementPolicy()
 
     def register(self, command: RegisterWorkerCommand) -> Worker:
         with self._uow_factory() as uow:
@@ -49,6 +61,8 @@ class WorkerService:
             if existing is None:
                 uow.workers.add(worker)
             else:
+                # The stable worker name survives restarts, but the process does not.
+                # Re-registration deliberately replaces the old process instance.
                 replacement = replace(worker, version=existing.version + 1)
                 uow.workers.update(replacement, expected_version=existing.version)
                 worker = replacement
@@ -88,8 +102,36 @@ class WorkerService:
             if worker.status is not WorkerStatus.READY:
                 return None
             queued = uow.jobs.list(status=JobStatus.QUEUED, limit=100, offset=0)
+            # A polling worker only considers work it claims it can understand.
             job = next((item for item in queued if item.task in worker.supported_tasks), None)
             if job is None:
+                return None
+
+            # Take one read-only picture of every worker before deciding. The policy
+            # receives this picture, not database objects, so its answer is reproducible.
+            snapshots = [
+                WorkerSnapshot(
+                    worker=candidate,
+                    active_slots=uow.attempts.count_active_for_worker(
+                        candidate.id, candidate.instance_id
+                    ),
+                )
+                for candidate in uow.workers.list()
+            ]
+            decision = self._policy.decide(job, snapshots)
+            if decision.selected_worker_id != worker.id:
+                # The caller did not win this placement. Keep the explanation so an
+                # operator can see whether the job is waiting or another worker won.
+                outcome = (
+                    "deferred" if decision.selected_worker_id is None else "selected_other_worker"
+                )
+                uow.scheduling_decisions.add(
+                    decision_id=str(uuid4()),
+                    job_id=job.id,
+                    decision=decision,
+                    outcome=outcome,
+                )
+                uow.commit()
                 return None
 
             attempt = ExecutionAttempt.create(
@@ -101,8 +143,16 @@ class WorkerService:
             )
             assigned = job.assign(attempt.id)
             try:
+                # These writes belong to one transaction. If any one fails, no worker
+                # gets a half-created lease and the job remains safe to retry later.
                 uow.attempts.add(attempt)
                 uow.jobs.update(assigned, expected_version=job.version)
+                uow.scheduling_decisions.add(
+                    decision_id=str(uuid4()),
+                    job_id=job.id,
+                    decision=decision,
+                    outcome="assigned",
+                )
                 uow.commit()
             except ConcurrentUpdate as error:
                 raise WorkerConflict("job was assigned by another worker; poll again") from error
@@ -112,6 +162,8 @@ class WorkerService:
         with self._uow_factory() as uow:
             attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
             try:
+                # The attempt and its parent job advance together. A job must never
+                # look "running" while its current attempt still looks "assigned".
                 started = attempt.transition(AttemptStatus.STARTING).transition(
                     AttemptStatus.RUNNING
                 )
@@ -128,6 +180,8 @@ class WorkerService:
         with self._uow_factory() as uow:
             attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
             try:
+                # Completion is guarded by the active attempt ID, so an older worker
+                # process cannot finish a job after a newer attempt has taken over.
                 completed = attempt.transition(AttemptStatus.SUCCEEDED)
                 job = self._job_for_attempt(uow, attempt)
                 succeeded = job.succeed()
@@ -137,6 +191,14 @@ class WorkerService:
             except (ConcurrentUpdate, InvalidStateTransition) as error:
                 raise WorkerConflict("attempt could not be completed") from error
             return succeeded
+
+    def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
+        """Return stored scheduling explanations after confirming the job exists."""
+
+        with self._uow_factory() as uow:
+            if uow.jobs.get(job_id) is None:
+                raise JobNotFound(f"job {job_id} was not found")
+            return uow.scheduling_decisions.list_for_job(job_id)
 
     @staticmethod
     def _current_worker(worker: Worker | None, instance_id: str) -> Worker:

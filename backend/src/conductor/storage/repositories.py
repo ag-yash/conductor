@@ -199,7 +199,7 @@ class SqlAttemptRepository:
         statement = select(AttemptRecord).where(
             AttemptRecord.worker_id == worker_id,
             AttemptRecord.worker_instance_id == instance_id,
-            AttemptRecord.status.in_(active),
+            col(AttemptRecord.status).in_(active),
         )
         return len(self._session.exec(statement).all())
 

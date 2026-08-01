@@ -51,8 +51,9 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 
 ## M5 — Heterogeneous AI runtimes and model lifecycle 🚧
 
-- Ollama-compatible text adapter and one ONNX Runtime workload.
+- Ollama-compatible text adapter and one deterministic fixture workload.
 - Model definition and residency lifecycle.
+- Worker execution through the fixture runtime with durable results.
 - Idle eviction and memory-pressure policy.
 - Benchmark command and recorded latency/resource summaries.
 

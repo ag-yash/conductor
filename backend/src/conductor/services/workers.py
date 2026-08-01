@@ -8,11 +8,14 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.worker import Worker, WorkerStatus
+from conductor.runtime.base import RuntimeAdapterError
+from conductor.runtime.manager import RuntimeManager
 from conductor.scheduler.policy import PlacementPolicy, RecordedSchedulingDecision, WorkerSnapshot
 from conductor.services.errors import (
     AttemptNotFound,
     JobConflict,
     JobNotFound,
+    RuntimeExecutionError,
     WorkerConflict,
     WorkerNotFound,
 )
@@ -45,9 +48,11 @@ class WorkerService:
         self,
         uow_factory: Callable[[], UnitOfWork],
         policy: PlacementPolicy | None = None,
+        runtime_manager: RuntimeManager | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._policy = policy or PlacementPolicy()
+        self._runtime_manager = runtime_manager or RuntimeManager.default()
 
     def register(self, command: RegisterWorkerCommand) -> Worker:
         with self._uow_factory() as uow:
@@ -184,13 +189,48 @@ class WorkerService:
                 # process cannot finish a job after a newer attempt has taken over.
                 completed = attempt.transition(AttemptStatus.SUCCEEDED)
                 job = self._job_for_attempt(uow, attempt)
-                succeeded = job.succeed()
+                succeeded = job.succeed(result={})
                 uow.attempts.update(completed, expected_version=attempt.version)
                 uow.jobs.update(succeeded, expected_version=job.version)
                 uow.commit()
             except (ConcurrentUpdate, InvalidStateTransition) as error:
                 raise WorkerConflict("attempt could not be completed") from error
             return succeeded
+
+    def execute_attempt(self, worker_id: str, instance_id: str, attempt_id: str) -> Job:
+        """Invoke the configured runtime, then atomically persist its result."""
+
+        with self._uow_factory() as uow:
+            attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
+            job = self._job_for_attempt(uow, attempt)
+            if attempt.status is not AttemptStatus.RUNNING or job.status is not JobStatus.RUNNING:
+                raise WorkerConflict("attempt must be running before runtime execution")
+            model = uow.model_definitions.get(job.model_id)
+            if model is None:
+                raise WorkerConflict(f"model {job.model_id} is not registered")
+
+            try:
+                result = self._runtime_manager.execute(
+                    model=model,
+                    worker_id=worker_id,
+                    worker_instance_id=instance_id,
+                    task=job.task,
+                    input=job.input,
+                    parameters=job.parameters,
+                )
+                completed_attempt = attempt.transition(AttemptStatus.SUCCEEDED)
+                succeeded_job = job.succeed(result.output)
+                uow.attempts.update(completed_attempt, expected_version=attempt.version)
+                uow.jobs.update(succeeded_job, expected_version=job.version)
+                uow.commit()
+                return succeeded_job
+            except RuntimeAdapterError as error:
+                failed_attempt = attempt.transition(AttemptStatus.FAILED)
+                failed_job = job.fail(str(error))
+                uow.attempts.update(failed_attempt, expected_version=attempt.version)
+                uow.jobs.update(failed_job, expected_version=job.version)
+                uow.commit()
+                raise RuntimeExecutionError(str(error)) from error
 
     def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
         """Return stored scheduling explanations after confirming the job exists."""

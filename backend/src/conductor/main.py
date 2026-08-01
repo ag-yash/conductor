@@ -14,6 +14,7 @@ from conductor.api.workers import router as workers_router
 from conductor.config.settings import Settings, get_settings
 from conductor.core.logging import configure_logging
 from conductor.core.request_context import RequestContextMiddleware
+from conductor.runtime.manager import RuntimeManager
 from conductor.services.jobs import JobService
 from conductor.services.models import ModelService
 from conductor.services.workers import WorkerService
@@ -55,7 +56,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lambda: SqlUnitOfWork(database),
         max_payload_bytes=resolved_settings.max_job_payload_bytes,
     )
-    application.state.worker_service = WorkerService(lambda: SqlUnitOfWork(database))
+    application.state.worker_service = WorkerService(
+        lambda: SqlUnitOfWork(database),
+        runtime_manager=RuntimeManager.default(),
+    )
     application.state.model_service = ModelService(lambda: SqlUnitOfWork(database))
     application.add_middleware(RequestContextMiddleware)
     register_error_handlers(application)

@@ -38,6 +38,8 @@ def _to_domain(record: JobRecord) -> Job:
         model_id=record.model_id,
         input=record.input_payload,
         parameters=record.parameters,
+        result=record.result_payload,
+        error_message=record.error_message,
         priority=JobPriority(record.priority),
         max_attempts=record.max_attempts,
         status=JobStatus(record.status),
@@ -134,6 +136,8 @@ class SqlJobRepository:
                 model_id=job.model_id,
                 input_payload=dict(job.input),
                 parameters=dict(job.parameters),
+                result_payload=dict(job.result) if job.result is not None else None,
+                error_message=job.error_message,
                 priority=job.priority.value,
                 max_attempts=job.max_attempts,
                 status=job.status.value,
@@ -154,6 +158,8 @@ class SqlJobRepository:
             .values(
                 status=job.status.value,
                 active_attempt_id=job.active_attempt_id,
+                result_payload=dict(job.result) if job.result is not None else None,
+                error_message=job.error_message,
                 updated_at=job.updated_at,
                 version=job.version,
             )

@@ -157,12 +157,14 @@ class Job:
         *,
         now: datetime | None,
         active_attempt_id: str | object | None = ...,
+        **changes: Any,
     ) -> Self:
-        changes: dict[str, Any] = {
+        transition_changes: dict[str, Any] = {
             "status": status,
             "updated_at": now or utc_now(),
             "version": self.version + 1,
         }
         if active_attempt_id is not ...:
-            changes["active_attempt_id"] = active_attempt_id
-        return replace(self, **changes)
+            transition_changes["active_attempt_id"] = active_attempt_id
+        transition_changes.update(changes)
+        return replace(self, **transition_changes)

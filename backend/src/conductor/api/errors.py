@@ -8,6 +8,8 @@ from conductor.services.errors import (
     IdempotencyConflict,
     JobConflict,
     JobNotFound,
+    ModelConflict,
+    ModelNotFound,
     PayloadTooLarge,
     ServiceError,
     WorkerConflict,
@@ -45,6 +47,14 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(WorkerConflict)
     async def worker_conflict(_request: Request, error: WorkerConflict) -> JSONResponse:
         return _error_response(status.HTTP_409_CONFLICT, "worker_conflict", str(error))
+
+    @app.exception_handler(ModelNotFound)
+    async def model_not_found(_request: Request, error: ModelNotFound) -> JSONResponse:
+        return _error_response(status.HTTP_404_NOT_FOUND, "model_not_found", str(error))
+
+    @app.exception_handler(ModelConflict)
+    async def model_conflict(_request: Request, error: ModelConflict) -> JSONResponse:
+        return _error_response(status.HTTP_409_CONFLICT, "model_conflict", str(error))
 
     @app.exception_handler(ServiceError)
     async def unexpected_service_error(_request: Request, error: ServiceError) -> JSONResponse:

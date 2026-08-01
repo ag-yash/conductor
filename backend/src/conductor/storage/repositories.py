@@ -8,10 +8,12 @@ from sqlmodel import Session, col, select
 
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.job import Job, JobPriority, JobStatus
+from conductor.domain.model import ModelDefinition, RuntimeKind
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.models.records import (
     AttemptRecord,
     JobRecord,
+    ModelDefinitionRecord,
     SchedulingDecisionRecord,
     WorkerRecord,
 )
@@ -70,6 +72,23 @@ def _worker_to_domain(record: WorkerRecord) -> Worker:
         registered_at=_aware(record.registered_at),
         last_heartbeat_at=_aware(record.last_heartbeat_at),
         version=record.version,
+    )
+
+
+def _model_to_domain(record: ModelDefinitionRecord) -> ModelDefinition:
+    """Translate the database representation into runtime-independent configuration."""
+
+    return ModelDefinition(
+        id=record.id,
+        display_name=record.display_name,
+        runtime_kind=RuntimeKind(record.runtime_kind),
+        artifact=record.artifact,
+        supported_tasks=frozenset(record.supported_tasks),
+        expected_memory_bytes=record.expected_memory_bytes,
+        idle_timeout_seconds=record.idle_timeout_seconds,
+        enabled=record.enabled,
+        revision=record.revision,
+        created_at=_aware(record.created_at),
     )
 
 
@@ -316,3 +335,34 @@ class SqlSchedulingDecisionRepository:
             )
             for record in self._session.exec(statement).all()
         ]
+
+
+class SqlModelDefinitionRepository:
+    """Persist trusted model definitions independently from loaded state."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, model: ModelDefinition) -> None:
+        self._session.add(
+            ModelDefinitionRecord(
+                id=model.id,
+                display_name=model.display_name,
+                runtime_kind=model.runtime_kind.value,
+                artifact=model.artifact,
+                supported_tasks=sorted(model.supported_tasks),
+                expected_memory_bytes=model.expected_memory_bytes,
+                idle_timeout_seconds=model.idle_timeout_seconds,
+                enabled=model.enabled,
+                revision=model.revision,
+                created_at=model.created_at,
+            )
+        )
+
+    def get(self, model_id: str) -> ModelDefinition | None:
+        record = self._session.get(ModelDefinitionRecord, model_id)
+        return _model_to_domain(record) if record is not None else None
+
+    def list(self) -> list[ModelDefinition]:
+        statement = select(ModelDefinitionRecord).order_by(col(ModelDefinitionRecord.id).asc())
+        return [_model_to_domain(record) for record in self._session.exec(statement).all()]

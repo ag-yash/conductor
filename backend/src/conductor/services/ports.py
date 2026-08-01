@@ -5,6 +5,7 @@ from typing import Protocol, Self
 
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.job import Job, JobStatus
+from conductor.domain.model import ModelDefinition
 from conductor.domain.worker import Worker
 from conductor.scheduler.policy import PlacementDecision, RecordedSchedulingDecision
 
@@ -64,6 +65,16 @@ class SchedulingDecisionRepository(Protocol):
     def list_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]: ...
 
 
+class ModelDefinitionRepository(Protocol):
+    """Trusted model-configuration persistence required by the model service."""
+
+    def add(self, model: ModelDefinition) -> None: ...
+
+    def get(self, model_id: str) -> ModelDefinition | None: ...
+
+    def list(self) -> list[ModelDefinition]: ...
+
+
 class UnitOfWork(Protocol):
     """One atomic application transaction."""
 
@@ -71,6 +82,7 @@ class UnitOfWork(Protocol):
     attempts: AttemptRepository
     workers: WorkerRepository
     scheduling_decisions: SchedulingDecisionRepository
+    model_definitions: ModelDefinitionRepository
 
     def __enter__(self) -> Self: ...
 

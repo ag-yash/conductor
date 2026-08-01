@@ -49,7 +49,7 @@ Demo: fill one worker, submit another job, and show that Conductor chooses the a
 
 Concepts introduced: snapshots, eligibility constraints, normalized load, deterministic tie-breaking, pure policy, audit records, and capacity accounting.
 
-## M5 — Heterogeneous AI runtimes and model lifecycle
+## M5 — Heterogeneous AI runtimes and model lifecycle 🚧
 
 - Ollama-compatible text adapter and one ONNX Runtime workload.
 - Model definition and residency lifecycle.

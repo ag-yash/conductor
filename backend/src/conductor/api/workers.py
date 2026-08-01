@@ -155,3 +155,17 @@ def complete_attempt(
     return JobResponse.from_domain(
         _service(request).complete_attempt(worker_id, worker_instance_id, attempt_id)
     )
+
+
+@router.post("/{worker_id}/attempts/{attempt_id}/execute", response_model=JobResponse)
+def execute_attempt(
+    worker_id: str,
+    attempt_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> JobResponse:
+    """Run a leased job through its configured runtime and persist the result."""
+
+    return JobResponse.from_domain(
+        _service(request).execute_attempt(worker_id, worker_instance_id, attempt_id)
+    )

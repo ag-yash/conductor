@@ -34,6 +34,8 @@ class JobResponse(BaseModel):
     model_id: str
     input: dict[str, Any]
     parameters: dict[str, Any]
+    result: dict[str, Any] | None
+    error_message: str | None
     priority: JobPriority
     max_attempts: int
     status: JobStatus
@@ -50,6 +52,8 @@ class JobResponse(BaseModel):
             model_id=job.model_id,
             input=dict(job.input),
             parameters=dict(job.parameters),
+            result=dict(job.result) if job.result is not None else None,
+            error_message=job.error_message,
             priority=job.priority,
             max_attempts=job.max_attempts,
             status=job.status,

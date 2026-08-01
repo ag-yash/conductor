@@ -23,6 +23,10 @@ class JobRecord(SQLModel, table=True):
     model_id: str
     input_payload: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
     parameters: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    result_payload: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    error_message: str | None = Field(default=None)
     priority: str
     max_attempts: int
     status: str

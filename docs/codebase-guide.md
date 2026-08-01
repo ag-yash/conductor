@@ -46,6 +46,7 @@ Conductor/
 │       ├── scheduler/       pure placement policy
 │       ├── services/        use cases and repository interfaces
 │       ├── storage/         SQLite repositories and transactions
+│       ├── runtime/         adapters and process-local model loading
 │       └── workers/         local worker process code as it grows
 ├── docs/                    product, learning, and design documents
 ├── tests/                   unit and integration tests
@@ -104,6 +105,26 @@ One transaction commits all three writes
 ```
 
 The transaction is the key correctness boundary. If only one of those writes were saved, the database could contradict itself.
+
+## Trace 3: a worker executes a model
+
+```text
+POST /workers/{id}/attempts/{attempt}/execute
+   ↓
+WorkerService verifies the current worker process and running attempt
+   ↓
+Model definition is loaded from SQLite
+   ↓
+RuntimeManager finds or loads the adapter's model
+   ↓
+Adapter invokes the model-specific runtime
+   ↓
+Job result is saved and attempt becomes succeeded
+```
+
+The important separation is that `WorkerService` coordinates the use case, while
+`RuntimeManager` owns the short-lived loaded-model cache. The service does not
+know whether the model is fixture, Ollama, or a future ONNX runtime.
 
 ## Important code patterns
 
@@ -171,7 +192,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M2 | Jobs survive restart | `domain/job.py`, `services/jobs.py` |
 | M3 | Workers safely lease and finish jobs | `domain/worker.py`, `services/workers.py` |
 | M4 | Placement decisions are fair and explainable | `scheduler/policy.py` |
-| M5 (current) | Models are configured separately from loaded runtime state | `domain/model.py`, `runtime/base.py` |
+| M5 (current) | Models execute through adapters with warm-model reuse | `domain/model.py`, `runtime/manager.py`, `services/workers.py` |
 
 ## How to read a test
 

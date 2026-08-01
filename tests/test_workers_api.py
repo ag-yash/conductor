@@ -26,6 +26,22 @@ def _submit(client: TestClient, key: str = "worker-demo") -> dict[str, object]:
     return cast(dict[str, object], response.json())
 
 
+def _register_fixture_model(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/models",
+        json={
+            "id": "qwen-demo",
+            "display_name": "Deterministic demo model",
+            "runtime_kind": "fixture",
+            "artifact": "fixture://qwen-demo",
+            "supported_tasks": ["text.generate"],
+            "expected_memory_bytes": 1,
+            "idle_timeout_seconds": 300,
+        },
+    )
+    assert response.status_code == 201
+
+
 def _headers(instance_id: str = "process-a") -> dict[str, str]:
     return {"Worker-Instance-ID": instance_id}
 
@@ -106,3 +122,69 @@ def test_worker_cannot_start_another_process_attempt(client: TestClient) -> None
     )
     assert rejected.status_code == 409
     assert rejected.json()["error"]["code"] == "worker_conflict"
+
+
+def test_worker_executes_fixture_runtime_and_persists_result(client: TestClient) -> None:
+    _register_fixture_model(client)
+    _register(client)
+    _submit(client, key="runtime-demo")
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    attempt_id = lease.json()["attempt"]["id"]
+
+    started = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/start",
+        headers=_headers(),
+    )
+    assert started.status_code == 200
+
+    executed = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/execute",
+        headers=_headers(),
+    )
+    assert executed.status_code == 200
+    body = executed.json()
+    assert body["status"] == "succeeded"
+    assert body["result"]["fixture_digest"]
+    assert body["error_message"] is None
+
+    fetched = client.get(f"/api/v1/jobs/{body['id']}")
+    assert fetched.json()["result"] == body["result"]
+
+
+def test_runtime_failure_marks_attempt_and_job_failed(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/models",
+        json={
+            "id": "ollama-demo",
+            "display_name": "Unavailable Ollama demo",
+            "runtime_kind": "ollama",
+            "artifact": "qwen3:0.6b",
+            "supported_tasks": ["text.generate"],
+            "expected_memory_bytes": 1,
+            "idle_timeout_seconds": 300,
+        },
+    )
+    assert response.status_code == 201
+    _register(client)
+    job_request = {**JOB_REQUEST, "model_id": "ollama-demo"}
+    response = client.post(
+        "/api/v1/jobs",
+        headers={"Idempotency-Key": "runtime-failure"},
+        json=job_request,
+    )
+    assert response.status_code == 201
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    attempt_id = lease.json()["attempt"]["id"]
+    client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/start",
+        headers=_headers(),
+    )
+
+    executed = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/execute",
+        headers=_headers(),
+    )
+    assert executed.status_code == 502
+    fetched = client.get(f"/api/v1/jobs/{response.json()['id']}")
+    assert fetched.json()["status"] == "failed"
+    assert "runtime ollama is not configured" in fetched.json()["error_message"]

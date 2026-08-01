@@ -39,3 +39,7 @@ class ModelNotFound(ServiceError):
 
 class ModelConflict(ServiceError):
     """A model identity is already registered or cannot be changed safely."""
+
+
+class RuntimeExecutionError(ServiceError):
+    """A runtime could not execute a leased job; the job has been failed safely."""

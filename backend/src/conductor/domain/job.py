@@ -50,6 +50,8 @@ class Job:
     model_id: str
     input: Mapping[str, Any]
     parameters: Mapping[str, Any]
+    result: Mapping[str, Any] | None
+    error_message: str | None
     priority: JobPriority
     max_attempts: int
     status: JobStatus
@@ -82,6 +84,8 @@ class Job:
             model_id=model_id,
             input=MappingProxyType(dict(input)),
             parameters=MappingProxyType(dict(parameters)),
+            result=None,
+            error_message=None,
             priority=priority,
             max_attempts=max_attempts,
             status=JobStatus.QUEUED,
@@ -110,12 +114,35 @@ class Job:
             raise InvalidStateTransition("job", self.status, JobStatus.QUEUED)
         return self._transition(JobStatus.QUEUED, now=now, active_attempt_id=None)
 
-    def succeed(self, *, now: datetime | None = None) -> Self:
+    def succeed(
+        self,
+        result: Mapping[str, Any],
+        *,
+        now: datetime | None = None,
+    ) -> Self:
         """Mark the current running job as successfully completed."""
 
         if self.status is not JobStatus.RUNNING:
             raise InvalidStateTransition("job", self.status, JobStatus.SUCCEEDED)
-        return self._transition(JobStatus.SUCCEEDED, now=now, active_attempt_id=None)
+        return self._transition(
+            JobStatus.SUCCEEDED,
+            now=now,
+            active_attempt_id=None,
+            result=MappingProxyType(dict(result)),
+            error_message=None,
+        )
+
+    def fail(self, message: str, *, now: datetime | None = None) -> Self:
+        """Persist a safe failure message when the runtime cannot execute the job."""
+
+        if self.status is not JobStatus.RUNNING:
+            raise InvalidStateTransition("job", self.status, JobStatus.FAILED)
+        return self._transition(
+            JobStatus.FAILED,
+            now=now,
+            active_attempt_id=None,
+            error_message=message,
+        )
 
     def cancel(self, *, now: datetime | None = None) -> Self:
         if self.status is JobStatus.CANCELLED:
@@ -130,12 +157,14 @@ class Job:
         *,
         now: datetime | None,
         active_attempt_id: str | object | None = ...,
+        **changes: Any,
     ) -> Self:
-        changes: dict[str, Any] = {
+        transition_changes: dict[str, Any] = {
             "status": status,
             "updated_at": now or utc_now(),
             "version": self.version + 1,
         }
         if active_attempt_id is not ...:
-            changes["active_attempt_id"] = active_attempt_id
-        return replace(self, **changes)
+            transition_changes["active_attempt_id"] = active_attempt_id
+        transition_changes.update(changes)
+        return replace(self, **transition_changes)

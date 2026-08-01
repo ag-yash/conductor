@@ -94,6 +94,33 @@ The first adapter uses a tiny injected JSON transport:
 
 The trade-off is that we own basic request/error translation.
 
+## The worker execution flow
+
+After a worker receives a lease, it now performs this sequence:
+
+```text
+lease → start → execute → result/failure
+                    ↓
+             load model if cold
+                    ↓
+             reuse it if warm
+```
+
+For example, a fixture job goes through:
+
+1. `POST /workers/demo-worker/leases/next` reserves the job.
+2. `POST .../start` changes the attempt and job to `running`.
+3. `POST .../execute` asks `RuntimeManager` to load `qwen-demo` if needed.
+4. The fixture adapter returns a deterministic digest.
+5. The result is saved in the job row and the attempt becomes `succeeded`.
+
+The `RuntimeManager` keeps residency in process memory because loaded model memory
+does not survive a worker restart. SQLite stores the durable model definition and
+job result; the manager stores the short-lived “currently loaded here” fact.
+
+If the same worker executes another job for the same model, the adapter is reused
+without another `load` call. This is the first warm-model optimization.
+
 ## Current M5 boundary
 
 This first slice provides:
@@ -103,8 +130,13 @@ This first slice provides:
 - a common runtime adapter protocol;
 - deterministic fixture execution;
 - Ollama load, generate, metrics, and unload translation.
+- worker execution through the fixture runtime;
+- durable job results and safe runtime failure messages;
+- process-local warm-model reuse.
 
-The next slice connects these adapters to the long-running worker loop, persists residency reports, records results on jobs, and adds idle eviction.
+The next slice adds persisted residency reports and idle eviction. Those features
+will make the in-memory cache visible to operators and allow Conductor to release
+models that have been unused for their configured timeout.
 
 ## Read the code in this order
 
@@ -117,6 +149,8 @@ The next slice connects these adapters to the long-running worker loop, persists
 7. `tests/test_model_domain.py`
 8. `tests/test_runtime_adapters.py`
 9. `tests/test_models_api.py`
+10. `runtime/manager.py`
+11. `tests/test_workers_api.py`
 
 ## Questions to check your understanding
 

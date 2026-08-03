@@ -1,6 +1,9 @@
 # State machines
 
-These transitions are normative for V1. Implementations must reject transitions not listed here and must persist transitions using optimistic concurrency guards.
+These transitions are the target V1 contract. Several core transitions are already
+implemented and tested, while retries, lease expiry, and running-job cancellation
+remain planned. See [`current-capabilities.md`](current-capabilities.md) for the
+current boundary before assuming a diagram is executable today.
 
 ## What a state machine is
 

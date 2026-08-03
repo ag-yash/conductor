@@ -4,6 +4,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from conductor.domain.attempt import ExecutionAttempt
+from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.model import ModelDefinition, ModelResidency
 from conductor.domain.worker import Worker
@@ -85,6 +86,16 @@ class ModelResidencyRepository(Protocol):
     def delete(self, residency_id: str) -> None: ...
 
 
+class BenchmarkSummaryRepository(Protocol):
+    """Persistence operations for completed, comparable runtime benchmarks."""
+
+    def add(self, summary: BenchmarkSummary) -> None: ...
+
+    def list_for_worker(
+        self, worker_id: str, instance_id: str, limit: int
+    ) -> list[BenchmarkSummary]: ...
+
+
 class UnitOfWork(Protocol):
     """One atomic application transaction."""
 
@@ -94,6 +105,7 @@ class UnitOfWork(Protocol):
     scheduling_decisions: SchedulingDecisionRepository
     model_definitions: ModelDefinitionRepository
     model_residencies: ModelResidencyRepository
+    benchmark_summaries: BenchmarkSummaryRepository
 
     def __enter__(self) -> Self: ...
 

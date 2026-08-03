@@ -1,10 +1,13 @@
 """Worker registration, liveness, leasing, and deterministic completion use cases."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from time import perf_counter_ns
+from typing import Any
 from uuid import uuid4
 
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
+from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.model import ModelResidency
@@ -40,6 +43,18 @@ class WorkLease:
 
     job: Job
     attempt: ExecutionAttempt
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkCommand:
+    """One bounded request to measure a model on a specific worker process."""
+
+    model_id: str
+    task: str
+    input: Mapping[str, Any]
+    parameters: Mapping[str, Any]
+    warmup_iterations: int
+    measurement_iterations: int
 
 
 class WorkerService:
@@ -271,6 +286,80 @@ class WorkerService:
             uow.commit()
             return list(evicted)
 
+    def benchmark(
+        self,
+        worker_id: str,
+        instance_id: str,
+        command: BenchmarkCommand,
+    ) -> BenchmarkSummary:
+        """Measure repeated runtime execution and retain a comparable summary."""
+
+        with self._uow_factory() as uow:
+            worker = self._current_worker(uow.workers.get(worker_id), instance_id)
+            if command.task not in worker.supported_tasks:
+                raise WorkerConflict(f"worker does not support task {command.task}")
+            model = uow.model_definitions.get(command.model_id)
+            if model is None:
+                raise WorkerConflict(f"model {command.model_id} is not registered")
+
+            metrics: dict[str, list[float]] = {}
+            samples_ms: list[float] = []
+            try:
+                # Warmups intentionally do not contribute to the summary. Their job
+                # is to include model loading and one-time runtime initialization so
+                # the measured samples describe steady-state, warm execution.
+                for _ in range(command.warmup_iterations):
+                    self._runtime_manager.execute(
+                        model=model,
+                        worker_id=worker_id,
+                        worker_instance_id=instance_id,
+                        task=command.task,
+                        input=command.input,
+                        parameters=command.parameters,
+                    )
+                for _ in range(command.measurement_iterations):
+                    started_ns = perf_counter_ns()
+                    result = self._runtime_manager.execute(
+                        model=model,
+                        worker_id=worker_id,
+                        worker_instance_id=instance_id,
+                        task=command.task,
+                        input=command.input,
+                        parameters=command.parameters,
+                    )
+                    samples_ms.append((perf_counter_ns() - started_ns) / 1_000_000)
+                    for name, value in result.metrics.items():
+                        metrics.setdefault(name, []).append(float(value))
+            except RuntimeAdapterError as error:
+                self._persist_runtime_residency(uow, worker_id, instance_id, model.id)
+                uow.commit()
+                raise RuntimeExecutionError(str(error)) from error
+
+            self._persist_runtime_residency(uow, worker_id, instance_id, model.id)
+            summary = BenchmarkSummary.create(
+                benchmark_id=str(uuid4()),
+                model_id=model.id,
+                model_revision=model.revision,
+                worker_id=worker_id,
+                worker_instance_id=instance_id,
+                task=command.task,
+                warmup_iterations=command.warmup_iterations,
+                samples_ms=tuple(samples_ms),
+                mean_runtime_metrics={
+                    name: sum(values) / len(values) for name, values in metrics.items()
+                },
+            )
+            uow.benchmark_summaries.add(summary)
+            uow.commit()
+            return summary
+
+    def benchmarks(self, worker_id: str, instance_id: str, limit: int) -> list[BenchmarkSummary]:
+        """Return newest-first benchmark history for the current worker process."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            return uow.benchmark_summaries.list_for_worker(worker_id, instance_id, limit)
+
     def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
         """Return stored scheduling explanations after confirming the job exists."""
 
@@ -310,3 +399,20 @@ class WorkerService:
         if attempt.worker_id != worker_id or attempt.worker_instance_id != instance_id:
             raise WorkerConflict("attempt belongs to a different worker process")
         return attempt
+
+    def _persist_runtime_residency(
+        self,
+        uow: UnitOfWork,
+        worker_id: str,
+        instance_id: str,
+        model_id: str,
+    ) -> None:
+        """Copy the manager's short-lived state into SQLite when it exists."""
+
+        residency = self._runtime_manager.residency(
+            worker_id=worker_id,
+            worker_instance_id=instance_id,
+            model_id=model_id,
+        )
+        if residency is not None:
+            uow.model_residencies.upsert(residency)

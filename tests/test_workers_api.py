@@ -187,7 +187,7 @@ def test_runtime_failure_marks_attempt_and_job_failed(client: TestClient) -> Non
     assert executed.status_code == 502
     fetched = client.get(f"/api/v1/jobs/{response.json()['id']}")
     assert fetched.json()["status"] == "failed"
-    assert "runtime ollama is not configured" in fetched.json()["error_message"]
+    assert "Ollama request failed" in fetched.json()["error_message"]
 
 
 def test_worker_persists_and_evicts_idle_fixture_residency(client: TestClient) -> None:
@@ -218,3 +218,36 @@ def test_worker_persists_and_evicts_idle_fixture_residency(client: TestClient) -
     after_eviction = client.get("/api/v1/workers/demo-worker/residencies", headers=_headers())
     assert after_eviction.status_code == 200
     assert after_eviction.json() == []
+
+
+def test_worker_benchmark_records_warm_runtime_summary(client: TestClient) -> None:
+    _register_fixture_model(client)
+    _register(client)
+
+    benchmark = client.post(
+        "/api/v1/workers/demo-worker/benchmarks",
+        headers=_headers(),
+        json={
+            "model_id": "qwen-demo",
+            "task": "text.generate",
+            "input": {"prompt": "Explain a warm model."},
+            "parameters": {"temperature": 0.2},
+            "warmup_iterations": 1,
+            "measurement_iterations": 2,
+        },
+    )
+
+    assert benchmark.status_code == 200
+    summary = benchmark.json()
+    assert summary["warmup_iterations"] == 1
+    assert summary["measurement_iterations"] == 2
+    assert summary["mean_wall_time_ms"] >= 0
+    assert summary["min_wall_time_ms"] <= summary["max_wall_time_ms"]
+    assert summary["mean_runtime_metrics"]["input_bytes"] > 0
+
+    history = client.get("/api/v1/workers/demo-worker/benchmarks", headers=_headers())
+    assert history.status_code == 200
+    assert [item["id"] for item in history.json()] == [summary["id"]]
+
+    residencies = client.get("/api/v1/workers/demo-worker/residencies", headers=_headers())
+    assert residencies.json()[0]["status"] == "ready"

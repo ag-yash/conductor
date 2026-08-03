@@ -7,11 +7,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
+from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.job import Job, JobPriority, JobStatus
 from conductor.domain.model import ModelDefinition, ModelResidency, ResidencyStatus, RuntimeKind
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.models.records import (
     AttemptRecord,
+    BenchmarkSummaryRecord,
     JobRecord,
     ModelDefinitionRecord,
     ModelResidencyRecord,
@@ -111,6 +113,25 @@ def _residency_to_domain(record: ModelResidencyRecord) -> ModelResidency:
         created_at=_aware(record.created_at),
         updated_at=_aware(record.updated_at),
         version=record.version,
+    )
+
+
+def _benchmark_to_domain(record: BenchmarkSummaryRecord) -> BenchmarkSummary:
+    return BenchmarkSummary(
+        id=record.id,
+        model_id=record.model_id,
+        model_revision=record.model_revision,
+        worker_id=record.worker_id,
+        worker_instance_id=record.worker_instance_id,
+        task=record.task,
+        warmup_iterations=record.warmup_iterations,
+        measurement_iterations=record.measurement_iterations,
+        total_wall_time_ms=record.total_wall_time_ms,
+        mean_wall_time_ms=record.mean_wall_time_ms,
+        min_wall_time_ms=record.min_wall_time_ms,
+        max_wall_time_ms=record.max_wall_time_ms,
+        mean_runtime_metrics=record.mean_runtime_metrics,
+        created_at=_aware(record.created_at),
     )
 
 
@@ -453,3 +474,50 @@ class SqlModelResidencyRepository:
         self._session.exec(
             delete(ModelResidencyRecord).where(col(ModelResidencyRecord.id) == residency_id)
         )
+
+
+class SqlBenchmarkSummaryRepository:
+    """Persist completed benchmark summaries as append-only operational history."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, summary: BenchmarkSummary) -> None:
+        self._session.add(
+            BenchmarkSummaryRecord(
+                id=summary.id,
+                model_id=summary.model_id,
+                model_revision=summary.model_revision,
+                worker_id=summary.worker_id,
+                worker_instance_id=summary.worker_instance_id,
+                task=summary.task,
+                warmup_iterations=summary.warmup_iterations,
+                measurement_iterations=summary.measurement_iterations,
+                total_wall_time_ms=summary.total_wall_time_ms,
+                mean_wall_time_ms=summary.mean_wall_time_ms,
+                min_wall_time_ms=summary.min_wall_time_ms,
+                max_wall_time_ms=summary.max_wall_time_ms,
+                mean_runtime_metrics=dict(summary.mean_runtime_metrics),
+                created_at=summary.created_at,
+            )
+        )
+
+    def list_for_worker(
+        self,
+        worker_id: str,
+        instance_id: str,
+        limit: int,
+    ) -> list[BenchmarkSummary]:
+        statement = (
+            select(BenchmarkSummaryRecord)
+            .where(
+                BenchmarkSummaryRecord.worker_id == worker_id,
+                BenchmarkSummaryRecord.worker_instance_id == instance_id,
+            )
+            .order_by(
+                col(BenchmarkSummaryRecord.created_at).desc(),
+                col(BenchmarkSummaryRecord.id).desc(),
+            )
+            .limit(limit)
+        )
+        return [_benchmark_to_domain(record) for record in self._session.exec(statement).all()]

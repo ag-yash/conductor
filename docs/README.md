@@ -6,18 +6,20 @@ These documents explain both **how to use Conductor** and **why it is designed t
 
 If this is your first time reading the project:
 
-1. [`vision.md`](vision.md) — what problem Conductor solves.
-2. [`codebase-guide.md`](codebase-guide.md) — where code lives and how one request moves through it.
-3. [`getting-started.md`](getting-started.md) — run the current system locally.
-4. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
-5. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
-6. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
-7. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
-8. [`state-machines.md`](state-machines.md) — understand legal status changes.
-9. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-10. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-11. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-12. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+1. [`current-capabilities.md`](current-capabilities.md) — what you can run today versus what is planned.
+2. [`vision.md`](vision.md) — the problem Conductor is designed to solve.
+3. [`codebase-guide.md`](codebase-guide.md) — where code lives and how one request moves through it.
+4. [`getting-started.md`](getting-started.md) — run the current system locally.
+5. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
+6. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
+7. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
+8. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
+9. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
+10. [`state-machines.md`](state-machines.md) — understand legal status changes.
+11. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+12. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+13. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+14. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

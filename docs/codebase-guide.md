@@ -142,6 +142,27 @@ Adapter unloads eligible models
 WorkerService deletes only successfully unloaded snapshots
 ```
 
+## Trace 4: benchmarking a warm model
+
+```text
+POST /workers/{id}/benchmarks
+   ↓
+WorkerService validates the worker capability and model definition
+   ↓
+RuntimeManager performs unmeasured warmups
+   ↓
+RuntimeManager performs timed samples
+   ↓
+BenchmarkSummary calculates min, mean, max, and total wall-clock time
+   ↓
+SQLite stores one immutable summary for later comparison
+```
+
+The benchmark does not create a normal `Job` or `ExecutionAttempt`. It is an
+operator measurement, not user-submitted work waiting in the queue. It still uses
+the same trusted model definition and runtime adapter, so it measures the actual
+execution path rather than a copy of that logic.
+
 ## Important code patterns
 
 ### Domain objects are immutable

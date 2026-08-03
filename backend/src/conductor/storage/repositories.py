@@ -451,5 +451,5 @@ class SqlModelResidencyRepository:
 
     def delete(self, residency_id: str) -> None:
         self._session.exec(
-            delete(ModelResidencyRecord).where(ModelResidencyRecord.id == residency_id)
+            delete(ModelResidencyRecord).where(col(ModelResidencyRecord.id) == residency_id)
         )

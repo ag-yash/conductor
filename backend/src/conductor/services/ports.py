@@ -5,7 +5,7 @@ from typing import Protocol, Self
 
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.job import Job, JobStatus
-from conductor.domain.model import ModelDefinition
+from conductor.domain.model import ModelDefinition, ModelResidency
 from conductor.domain.worker import Worker
 from conductor.scheduler.policy import PlacementDecision, RecordedSchedulingDecision
 
@@ -75,6 +75,16 @@ class ModelDefinitionRepository(Protocol):
     def list(self) -> list[ModelDefinition]: ...
 
 
+class ModelResidencyRepository(Protocol):
+    """Persistence operations for short-lived loaded-model snapshots."""
+
+    def upsert(self, residency: ModelResidency) -> None: ...
+
+    def list_for_worker(self, worker_id: str, instance_id: str) -> list[ModelResidency]: ...
+
+    def delete(self, residency_id: str) -> None: ...
+
+
 class UnitOfWork(Protocol):
     """One atomic application transaction."""
 
@@ -83,6 +93,7 @@ class UnitOfWork(Protocol):
     workers: WorkerRepository
     scheduling_decisions: SchedulingDecisionRepository
     model_definitions: ModelDefinitionRepository
+    model_residencies: ModelResidencyRepository
 
     def __enter__(self) -> Self: ...
 

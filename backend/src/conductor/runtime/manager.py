@@ -7,6 +7,7 @@ currently present in this process's memory.
 """
 
 from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from threading import RLock
 from typing import Any
 
@@ -21,6 +22,7 @@ class RuntimeManager:
     def __init__(self, adapters: Mapping[RuntimeKind, RuntimeAdapter]) -> None:
         self._adapters = dict(adapters)
         self._residencies: dict[tuple[str, str, str], ModelResidency] = {}
+        self._models: dict[tuple[str, str, str], ModelDefinition] = {}
         # A request may arrive from multiple web-server threads. The lock makes
         # “check whether loaded, then load once” one atomic operation locally.
         self._lock = RLock()
@@ -51,6 +53,7 @@ class RuntimeManager:
 
         key = (worker_id, worker_instance_id, model.id)
         with self._lock:
+            self._models[key] = model
             residency = self._residencies.get(key)
             if residency is None or residency.status is ResidencyStatus.FAILED:
                 residency = ModelResidency.start_loading(
@@ -81,6 +84,49 @@ class RuntimeManager:
                 raise
             self._residencies[key] = residency.finish_execution()
             return result
+
+    def evict_idle(
+        self,
+        *,
+        worker_id: str,
+        worker_instance_id: str,
+        now: datetime | None = None,
+    ) -> tuple[ModelResidency, ...]:
+        """Unload models that have been idle for their configured timeout."""
+
+        timestamp = now or datetime.now(UTC)
+        evicted: list[ModelResidency] = []
+        with self._lock:
+            for key, residency in list(self._residencies.items()):
+                if key[:2] != (worker_id, worker_instance_id):
+                    continue
+                model = self._models[key]
+                if not self._is_idle(residency, model, timestamp):
+                    continue
+                adapter = self._adapters[model.runtime_kind]
+                unloading = residency.begin_unloading(now=timestamp)
+                try:
+                    adapter.unload(model)
+                except RuntimeAdapterError as error:
+                    self._residencies[key] = unloading.mark_failed(str(error), now=timestamp)
+                    raise
+                evicted.append(unloading)
+                del self._residencies[key]
+                del self._models[key]
+        return tuple(evicted)
+
+    @staticmethod
+    def _is_idle(
+        residency: ModelResidency,
+        model: ModelDefinition,
+        now: datetime,
+    ) -> bool:
+        if residency.status is not ResidencyStatus.READY:
+            return False
+        if residency.active_execution_count != 0 or residency.last_used_at is None:
+            return False
+        deadline = residency.last_used_at + timedelta(seconds=model.idle_timeout_seconds)
+        return now >= deadline
 
     def residency(
         self, *, worker_id: str, worker_instance_id: str, model_id: str

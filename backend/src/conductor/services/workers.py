@@ -7,6 +7,7 @@ from uuid import uuid4
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus
+from conductor.domain.model import ModelResidency
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.runtime.base import RuntimeAdapterError
 from conductor.runtime.manager import RuntimeManager
@@ -220,6 +221,13 @@ class WorkerService:
                 )
                 completed_attempt = attempt.transition(AttemptStatus.SUCCEEDED)
                 succeeded_job = job.succeed(result.output)
+                residency = self._runtime_manager.residency(
+                    worker_id=worker_id,
+                    worker_instance_id=instance_id,
+                    model_id=model.id,
+                )
+                if residency is not None:
+                    uow.model_residencies.upsert(residency)
                 uow.attempts.update(completed_attempt, expected_version=attempt.version)
                 uow.jobs.update(succeeded_job, expected_version=job.version)
                 uow.commit()
@@ -227,10 +235,41 @@ class WorkerService:
             except RuntimeAdapterError as error:
                 failed_attempt = attempt.transition(AttemptStatus.FAILED)
                 failed_job = job.fail(str(error))
+                residency = self._runtime_manager.residency(
+                    worker_id=worker_id,
+                    worker_instance_id=instance_id,
+                    model_id=model.id,
+                )
+                if residency is not None:
+                    uow.model_residencies.upsert(residency)
                 uow.attempts.update(failed_attempt, expected_version=attempt.version)
                 uow.jobs.update(failed_job, expected_version=job.version)
                 uow.commit()
                 raise RuntimeExecutionError(str(error)) from error
+
+    def residencies(self, worker_id: str, instance_id: str) -> list[ModelResidency]:
+        """Return the latest durable residency snapshots for one worker process."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            return uow.model_residencies.list_for_worker(worker_id, instance_id)
+
+    def evict_idle(self, worker_id: str, instance_id: str) -> list[ModelResidency]:
+        """Unload eligible models and remove their no-longer-resident snapshots."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            try:
+                evicted = self._runtime_manager.evict_idle(
+                    worker_id=worker_id,
+                    worker_instance_id=instance_id,
+                )
+            except RuntimeAdapterError as error:
+                raise RuntimeExecutionError(str(error)) from error
+            for residency in evicted:
+                uow.model_residencies.delete(residency.id)
+            uow.commit()
+            return list(evicted)
 
     def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
         """Return stored scheduling explanations after confirming the job exists."""

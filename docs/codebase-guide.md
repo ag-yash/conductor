@@ -126,6 +126,22 @@ The important separation is that `WorkerService` coordinates the use case, while
 `RuntimeManager` owns the short-lived loaded-model cache. The service does not
 know whether the model is fixture, Ollama, or a future ONNX runtime.
 
+After execution, `WorkerService` also copies the manager's latest residency
+snapshot into SQLite. This gives operators a durable view without pretending that
+SQLite owns the model's in-memory object.
+
+To evict an idle model:
+
+```text
+POST /workers/{id}/evict-idle
+   ↓
+RuntimeManager checks last_used_at + timeout
+   ↓
+Adapter unloads eligible models
+   ↓
+WorkerService deletes only successfully unloaded snapshots
+```
+
 ## Important code patterns
 
 ### Domain objects are immutable

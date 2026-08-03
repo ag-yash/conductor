@@ -54,7 +54,7 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 - Ollama-compatible text adapter and one deterministic fixture workload.
 - Model definition and residency lifecycle.
 - Worker execution through the fixture runtime with durable results.
-- Idle eviction and memory-pressure policy.
+- Idle eviction through a testable worker operation; periodic memory-pressure policy remains hardening work.
 - Benchmark command and recorded latency/resource summaries.
 
 Demo: run two AI task kinds through one API and show warm-model preference and unload behavior.

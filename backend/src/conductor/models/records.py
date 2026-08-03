@@ -102,3 +102,32 @@ class ModelDefinitionRecord(SQLModel, table=True):
     enabled: bool
     revision: int
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class ModelResidencyRecord(SQLModel, table=True):
+    """Durable snapshot of one model loaded in one worker process."""
+
+    __tablename__ = "model_residencies"
+    __table_args__ = (
+        Index("ix_model_residencies_worker", "worker_id", "worker_instance_id"),
+        Index("ix_model_residencies_model", "model_id"),
+    )
+
+    id: str = Field(primary_key=True)
+    model_id: str
+    model_revision: int
+    worker_id: str
+    worker_instance_id: str
+    status: str
+    active_execution_count: int
+    measured_memory_bytes: int | None
+    loaded_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    last_used_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    failure_message: str | None = Field(default=None)
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+    version: int

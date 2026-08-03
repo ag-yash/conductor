@@ -3,14 +3,20 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Header, Query, Request, Response, status
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from conductor.api.jobs import JobResponse
 from conductor.domain.attempt import ExecutionAttempt
+from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.model import ModelResidency, ResidencyStatus
 from conductor.domain.worker import Worker, WorkerStatus
-from conductor.services.workers import RegisterWorkerCommand, WorkerService, WorkLease
+from conductor.services.workers import (
+    BenchmarkCommand,
+    RegisterWorkerCommand,
+    WorkerService,
+    WorkLease,
+)
 
 router = APIRouter(prefix="/workers", tags=["workers"])
 
@@ -115,6 +121,57 @@ class ResidencyResponse(BaseModel):
             last_used_at=residency.last_used_at,
             failure_message=residency.failure_message,
             version=residency.version,
+        )
+
+
+class BenchmarkRequest(BaseModel):
+    """Bounded request for a repeatable, warm-runtime benchmark."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: str = Field(min_length=1, max_length=100)
+    task: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9][a-z0-9._-]*$")
+    input: dict[str, JsonValue] = Field(default_factory=dict)
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    warmup_iterations: int = Field(default=1, ge=0, le=5)
+    measurement_iterations: int = Field(default=3, ge=1, le=20)
+
+
+class BenchmarkSummaryResponse(BaseModel):
+    """Stable, persisted timing summary returned to an operator."""
+
+    id: str
+    model_id: str
+    model_revision: int
+    worker_id: str
+    worker_instance_id: str
+    task: str
+    warmup_iterations: int
+    measurement_iterations: int
+    total_wall_time_ms: float
+    mean_wall_time_ms: float
+    min_wall_time_ms: float
+    max_wall_time_ms: float
+    mean_runtime_metrics: dict[str, float]
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, summary: BenchmarkSummary) -> "BenchmarkSummaryResponse":
+        return cls(
+            id=summary.id,
+            model_id=summary.model_id,
+            model_revision=summary.model_revision,
+            worker_id=summary.worker_id,
+            worker_instance_id=summary.worker_instance_id,
+            task=summary.task,
+            warmup_iterations=summary.warmup_iterations,
+            measurement_iterations=summary.measurement_iterations,
+            total_wall_time_ms=summary.total_wall_time_ms,
+            mean_wall_time_ms=summary.mean_wall_time_ms,
+            min_wall_time_ms=summary.min_wall_time_ms,
+            max_wall_time_ms=summary.max_wall_time_ms,
+            mean_runtime_metrics=dict(summary.mean_runtime_metrics),
+            created_at=summary.created_at,
         )
 
 
@@ -227,4 +284,41 @@ def evict_idle(
     return [
         ResidencyResponse.from_domain(item)
         for item in _service(request).evict_idle(worker_id, worker_instance_id)
+    ]
+
+
+@router.post("/{worker_id}/benchmarks", response_model=BenchmarkSummaryResponse)
+def benchmark_runtime(
+    worker_id: str,
+    payload: BenchmarkRequest,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> BenchmarkSummaryResponse:
+    """Measure one trusted model repeatedly on a current worker process."""
+
+    summary = _service(request).benchmark(
+        worker_id,
+        worker_instance_id,
+        BenchmarkCommand(
+            model_id=payload.model_id,
+            task=payload.task,
+            input=dict(payload.input),
+            parameters=dict(payload.parameters),
+            warmup_iterations=payload.warmup_iterations,
+            measurement_iterations=payload.measurement_iterations,
+        ),
+    )
+    return BenchmarkSummaryResponse.from_domain(summary)
+
+
+@router.get("/{worker_id}/benchmarks", response_model=list[BenchmarkSummaryResponse])
+def list_benchmarks(
+    worker_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[BenchmarkSummaryResponse]:
+    return [
+        BenchmarkSummaryResponse.from_domain(item)
+        for item in _service(request).benchmarks(worker_id, worker_instance_id, limit)
     ]

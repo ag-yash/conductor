@@ -11,7 +11,9 @@ Think of Conductor as a small delivery company:
 - an **execution attempt** records one specific try;
 - SQLite is the company record book that survives an office restart.
 
-The control plane coordinates work. It does not perform AI inference itself. Workers eventually call Ollama, ONNX Runtime, or another runtime adapter to do that heavy work.
+The control plane coordinates work. It does not contain model-specific inference
+logic. The current worker-facing execution path calls the fixture or Ollama
+adapter through `RuntimeManager`; an ONNX adapter remains planned.
 
 This separation matters because coordination and inference have different responsibilities. The control plane must stay responsive even when a model takes several seconds to load or a worker crashes.
 

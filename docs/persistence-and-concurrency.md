@@ -176,6 +176,10 @@ Current history:
 - `0001`: jobs and attempts;
 - `0002`: workers;
 - `0003`: scheduling decisions.
+- `0004`: model definitions;
+- `0005`: job results and safe failure messages;
+- `0006`: model-residency snapshots;
+- `0007`: benchmark summaries.
 
 On startup, Conductor applies missing migrations before readiness becomes true. That prevents the API from accepting work against an outdated schema.
 
@@ -187,6 +191,7 @@ Examples:
 
 - jobs indexed by status and creation time help find queued work;
 - decisions indexed by job and creation time help show one job’s history.
+- benchmarks indexed by worker/model and creation time help compare recent runs.
 
 We add indexes for actual query patterns rather than indexing every column.
 
@@ -197,4 +202,3 @@ We add indexes for actual query patterns rather than indexing every column.
 3. How does a version column detect a race?
 4. Why is a Python “does this key exist?” check insufficient for uniqueness?
 5. What evidence might justify moving from SQLite to PostgreSQL?
-

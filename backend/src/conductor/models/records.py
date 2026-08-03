@@ -131,3 +131,28 @@ class ModelResidencyRecord(SQLModel, table=True):
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     version: int
+
+
+class BenchmarkSummaryRecord(SQLModel, table=True):
+    """Database representation of one completed runtime benchmark."""
+
+    __tablename__ = "benchmark_summaries"
+    __table_args__ = (
+        Index("ix_benchmark_summaries_worker_created", "worker_id", "created_at"),
+        Index("ix_benchmark_summaries_model_created", "model_id", "created_at"),
+    )
+
+    id: str = Field(primary_key=True)
+    model_id: str
+    model_revision: int
+    worker_id: str
+    worker_instance_id: str
+    task: str
+    warmup_iterations: int
+    measurement_iterations: int
+    total_wall_time_ms: float
+    mean_wall_time_ms: float
+    min_wall_time_ms: float
+    max_wall_time_ms: float
+    mean_runtime_metrics: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))

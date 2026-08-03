@@ -154,7 +154,7 @@ claiming that a model is gone before the runtime has released it.
 
 ## Current M5 boundary
 
-This first slice provides:
+The current M5 implementation provides:
 
 - durable model-definition registration;
 - model-residency domain rules;
@@ -165,6 +165,7 @@ This first slice provides:
 - durable job results and safe runtime failure messages;
 - process-local warm-model reuse;
 - persisted residency snapshots and an idle-eviction endpoint.
+- a recorded warm-runtime benchmark endpoint; see [`benchmarks.md`](benchmarks.md).
 
 Memory-pressure eviction and periodic background eviction remain future hardening
 work; the current endpoint makes the policy observable and testable first.

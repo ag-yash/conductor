@@ -1,15 +1,22 @@
 # Conductor
 
-Conductor is an intelligent, local-first AI workload manager for developers. It will provide a unified way to schedule, run, and observe heterogeneous AI workloads while managing limited local compute and memory responsibly.
+Conductor is an intelligent, local-first AI workload manager for developers. It
+provides a unified way to schedule, run, and observe selected local AI workloads
+while managing model residency responsibly. The complete `v1.0.0` target expands
+this with a CLI, dashboard, ONNX runtime, and deeper resource-aware scheduling.
 
-Conductor currently provides a production-oriented control-plane shell plus a durable job API. Jobs are stored in SQLite, duplicate submissions are handled safely, state changes are guarded, and queued work can be inspected or cancelled. Job scheduling and AI execution are introduced in later milestones.
+Conductor currently provides a local control plane with durable SQLite jobs,
+explainable worker scheduling, worker leases, trusted model definitions, fixture
+and Ollama runtime adapters, warm-model residency, idle eviction, and recorded
+runtime benchmarks. See [the current-capabilities guide](docs/current-capabilities.md)
+for a precise implemented-versus-planned matrix.
 
 ## Product principles
 
 - **Local-first:** useful on a developer laptop without cloud infrastructure.
-- **Runtime-agnostic:** the control plane will not be coupled to one model provider.
-- **Resource-aware:** scheduling and model lifecycle decisions will account for local constraints.
-- **Observable:** jobs, workers, models, and resource use will be explainable.
+- **Runtime-agnostic:** the control plane is not coupled to one model provider.
+- **Resource-aware:** model lifecycle decisions account for local constraints; richer scheduler inputs are planned.
+- **Observable:** jobs, workers, models, and benchmark results are inspectable through the API.
 - **Focused:** Conductor is AI infrastructure, not a chatbot or RAG application.
 
 ## Architecture direction

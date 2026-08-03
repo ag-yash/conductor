@@ -14,6 +14,7 @@ from typing import Any
 from conductor.domain.model import ModelDefinition, ModelResidency, ResidencyStatus, RuntimeKind
 from conductor.runtime.base import RuntimeAdapter, RuntimeAdapterError, RuntimeResult
 from conductor.runtime.fixture import FixtureRuntimeAdapter
+from conductor.runtime.ollama import OllamaRuntimeAdapter
 
 
 class RuntimeManager:
@@ -31,7 +32,15 @@ class RuntimeManager:
     def default(cls) -> "RuntimeManager":
         """Build the V1 manager with the deterministic runtime available by default."""
 
-        return cls({RuntimeKind.FIXTURE: FixtureRuntimeAdapter()})
+        return cls(
+            {
+                RuntimeKind.FIXTURE: FixtureRuntimeAdapter(),
+                # The adapter uses Ollama only when an Ollama model is registered
+                # and executed. Keeping it in the registry makes the integration
+                # available without requiring Ollama for fixture-only development.
+                RuntimeKind.OLLAMA: OllamaRuntimeAdapter(),
+            }
+        )
 
     def execute(
         self,

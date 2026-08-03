@@ -55,9 +55,10 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 - Model definition and residency lifecycle.
 - Worker execution through the fixture runtime with durable results.
 - Idle eviction through a testable worker operation; periodic memory-pressure policy remains hardening work.
-- Benchmark command and recorded latency/resource summaries.
+- Benchmark API and recorded latency/runtime summaries; CLI command remains M6 work.
 
-Demo: run two AI task kinds through one API and show warm-model preference and unload behavior.
+Demo: run fixture and Ollama models through one task contract, inspect residency,
+benchmark warm execution, and show idle unload behavior.
 
 Concepts introduced: adapter pattern, model metadata versus loaded state, cold starts, resource measurement, eviction policy, runtime isolation, and benchmarking.
 

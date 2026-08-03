@@ -173,7 +173,8 @@ supported_tasks: [text.generate]
 expected_memory: 2 GB
 ```
 
-M5 will introduce this object.
+This object is implemented in `domain/model.py` and persisted through model
+definition and residency repositories.
 
 | Field | Meaning |
 | --- | --- |

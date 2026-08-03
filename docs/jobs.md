@@ -157,7 +157,9 @@ Job: "Generate this text"
   └── Attempt 2: succeeded
 ```
 
-Retries create new attempts instead of deleting previous history. M2 defines and tests the attempt state rules; M3 will create attempts when workers begin accepting jobs.
+Retries create new attempts instead of deleting previous history. The current
+worker protocol creates attempts when it leases jobs. Automatic retry and lease
+expiry recovery remain planned work.
 
 ## What is a database migration?
 

@@ -1,5 +1,8 @@
 # Product vision and V1 scope
 
+> This document describes the `v1.0.0` target. For the tested implementation
+> available today, start with [`current-capabilities.md`](current-capabilities.md).
+
 ## One-sentence definition
 
 Conductor is a local-first control plane that queues AI inference jobs, selects an eligible local worker using explainable resource-aware scheduling, manages model residency, and exposes execution health through one API, CLI, and dashboard.
@@ -50,7 +53,7 @@ A developer running multiple local AI workloads on one laptop who wants repeatab
 
 The V1 user is intentionally single-machine and single-user. This lets us study scheduling, durability, failure recovery, process coordination, and model lifecycle without adding authentication or multi-host networking first.
 
-## V1 success criteria
+## Target V1 success criteria
 
 V1 is complete when a fresh contributor can run Conductor locally and demonstrate all of the following:
 
@@ -65,7 +68,7 @@ V1 is complete when a fresh contributor can run Conductor locally and demonstrat
 9. Perform the core submit, inspect, cancel, and benchmark flows through the CLI.
 10. Start the supported local topology with one documented command and pass the automated test suite.
 
-## V1 capabilities
+## Target V1 capabilities
 
 ### Control plane
 

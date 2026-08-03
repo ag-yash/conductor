@@ -99,6 +99,13 @@ When a test is confusing, label these phases mentally and identify the user-visi
 | `test_jobs_api.py` | Submission, idempotency, listing, cancellation, restart durability |
 | `test_workers_api.py` | Registration, heartbeat, restart identity, leasing, draining |
 | `test_scheduling_api.py` | Capacity-aware selection and persisted explanation |
+| `test_runtime_adapters.py` | Fixture determinism and Ollama request/error translation without a live server |
+| `test_model_domain.py` | Model definition and residency lifecycle rules |
+
+`test_workers_api.py` also covers the runtime execution flow, persisted residency,
+idle eviction, and benchmark history. It is an integration test because one HTTP
+request travels through validation, service logic, runtime coordination, SQLite,
+and the response schema.
 
 ## Testing concurrency rules
 
@@ -150,4 +157,3 @@ Include:
 3. Why is 100% coverage not proof of correctness?
 4. When should a scheduler rule use a unit test?
 5. What three phases help you read an unfamiliar test?
-

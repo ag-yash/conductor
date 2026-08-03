@@ -70,7 +70,10 @@ Worker-Instance-ID: process-a
 
 A heartbeat does not mean a job succeeded. It only says the worker process is alive enough to communicate.
 
-Later lease-expiry logic will use missing heartbeats conservatively. “No heartbeat” means “do not trust this worker for new work,” not “we have proof that the process is dead.”
+The current implementation protects against stale process instances. Future
+lease-expiry logic will additionally use missing heartbeats conservatively. “No
+heartbeat” means “do not trust this worker for new work,” not “we have proof that
+the process is dead.”
 
 ## M3 request flow
 

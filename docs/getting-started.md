@@ -1,6 +1,6 @@
 # Getting started with Conductor
 
-## What exists now (through M4)
+## What exists now (through the current M5 slice)
 
 Conductor currently provides:
 
@@ -9,8 +9,14 @@ Conductor currently provides:
 - worker registration, heartbeats, draining, and polling;
 - deterministic slot-aware scheduling;
 - persisted explanations showing why a worker was selected or rejected.
+- trusted model definitions plus process-specific residency snapshots;
+- fixture and Ollama runtime adapters, model loading, warm reuse, and idle eviction;
+- runtime benchmark summaries through the worker API.
 
-It does not invoke a real AI runtime yet. M5 adds that integration after the coordination rules are proven.
+Use the fixture runtime to learn the full flow without downloading a model. Ollama
+execution is available when you run Ollama locally and register an Ollama model.
+See [`models-and-runtimes.md`](models-and-runtimes.md) and
+[`benchmarks.md`](benchmarks.md) for those flows.
 
 ## Requirements
 
@@ -131,4 +137,7 @@ Read the structured log with the matching `X-Request-ID`. Database-path or migra
 
 ## What comes next
 
-M5 connects the worker protocol to real local AI runtimes and introduces model definitions, model residency, loading, and unloading.
+The remaining M5 work adds an ONNX runtime and deeper resource measurements.
+M6 then builds the CLI and dashboard over the current API. Check
+[`current-capabilities.md`](current-capabilities.md) before relying on a target
+feature described elsewhere.

@@ -8,6 +8,7 @@ from conductor.services.ports import (
     AttemptRepository,
     JobRepository,
     ModelDefinitionRepository,
+    ModelResidencyRepository,
     SchedulingDecisionRepository,
     WorkerRepository,
 )
@@ -16,6 +17,7 @@ from conductor.storage.repositories import (
     SqlAttemptRepository,
     SqlJobRepository,
     SqlModelDefinitionRepository,
+    SqlModelResidencyRepository,
     SqlSchedulingDecisionRepository,
     SqlWorkerRepository,
 )
@@ -32,6 +34,7 @@ class SqlUnitOfWork:
         self.workers: WorkerRepository
         self.scheduling_decisions: SchedulingDecisionRepository
         self.model_definitions: ModelDefinitionRepository
+        self.model_residencies: ModelResidencyRepository
 
     def __enter__(self) -> "SqlUnitOfWork":
         # Every repository below shares one SQLite session. That gives a service one
@@ -42,6 +45,7 @@ class SqlUnitOfWork:
         self.workers = SqlWorkerRepository(self._session)
         self.scheduling_decisions = SqlSchedulingDecisionRepository(self._session)
         self.model_definitions = SqlModelDefinitionRepository(self._session)
+        self.model_residencies = SqlModelResidencyRepository(self._session)
         return self
 
     def __exit__(

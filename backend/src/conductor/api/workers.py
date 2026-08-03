@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from conductor.api.jobs import JobResponse
 from conductor.domain.attempt import ExecutionAttempt
+from conductor.domain.model import ModelResidency, ResidencyStatus
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.services.workers import RegisterWorkerCommand, WorkerService, WorkLease
 
@@ -80,6 +81,40 @@ class LeaseResponse(BaseModel):
         return cls(
             job=JobResponse.from_domain(lease.job),
             attempt=AttemptResponse.from_domain(lease.attempt),
+        )
+
+
+class ResidencyResponse(BaseModel):
+    """Public snapshot of one model currently known to a worker process."""
+
+    id: str
+    model_id: str
+    model_revision: int
+    worker_id: str
+    worker_instance_id: str
+    status: ResidencyStatus
+    active_execution_count: int
+    measured_memory_bytes: int | None
+    loaded_at: datetime | None
+    last_used_at: datetime | None
+    failure_message: str | None
+    version: int
+
+    @classmethod
+    def from_domain(cls, residency: ModelResidency) -> "ResidencyResponse":
+        return cls(
+            id=residency.id,
+            model_id=residency.model_id,
+            model_revision=residency.model_revision,
+            worker_id=residency.worker_id,
+            worker_instance_id=residency.worker_instance_id,
+            status=residency.status,
+            active_execution_count=residency.active_execution_count,
+            measured_memory_bytes=residency.measured_memory_bytes,
+            loaded_at=residency.loaded_at,
+            last_used_at=residency.last_used_at,
+            failure_message=residency.failure_message,
+            version=residency.version,
         )
 
 
@@ -169,3 +204,27 @@ def execute_attempt(
     return JobResponse.from_domain(
         _service(request).execute_attempt(worker_id, worker_instance_id, attempt_id)
     )
+
+
+@router.get("/{worker_id}/residencies", response_model=list[ResidencyResponse])
+def list_residencies(
+    worker_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> list[ResidencyResponse]:
+    return [
+        ResidencyResponse.from_domain(item)
+        for item in _service(request).residencies(worker_id, worker_instance_id)
+    ]
+
+
+@router.post("/{worker_id}/evict-idle", response_model=list[ResidencyResponse])
+def evict_idle(
+    worker_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> list[ResidencyResponse]:
+    return [
+        ResidencyResponse.from_domain(item)
+        for item in _service(request).evict_idle(worker_id, worker_instance_id)
+    ]

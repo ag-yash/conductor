@@ -11,4 +11,8 @@ The manager's residency cache is process-local on purpose. A loaded model is a
 memory object inside one worker process, so it cannot be trusted after that
 process restarts. Durable model definitions and job results remain in SQLite.
 
+After a successful execution, the worker persists the manager's latest residency
+snapshot. Calling the worker's idle-eviction operation unloads eligible adapters
+and then removes those snapshots from SQLite.
+
 Runtime-specific request shapes stay here; the scheduler and domain must not depend on Ollama.

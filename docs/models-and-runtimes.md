@@ -121,6 +121,37 @@ job result; the manager stores the short-lived “currently loaded here” fact.
 If the same worker executes another job for the same model, the adapter is reused
 without another `load` call. This is the first warm-model optimization.
 
+## Persisted residency and eviction
+
+After an execution finishes, Conductor saves a snapshot like this:
+
+```text
+model: qwen-demo
+worker: demo-worker / process-a
+status: ready
+active executions: 0
+last used: 10:32:05
+```
+
+This row is not the model itself and it is not an execution history. It is an
+operator-friendly answer to: “Which worker currently has this model loaded?”
+
+The snapshot is updated after execution and disappears after successful eviction.
+If the worker process restarts, its old memory is gone; the old process identity
+prevents that stale residency from being reused.
+
+Idle eviction compares `last_used_at` with the model's configured timeout:
+
+```text
+last_used_at + idle_timeout_seconds <= now
+                         ↓
+                  unload the model
+```
+
+Eviction first enters the `UNLOADING` state and calls the adapter's `unload` method.
+Only after that succeeds does Conductor remove the persisted snapshot. This avoids
+claiming that a model is gone before the runtime has released it.
+
 ## Current M5 boundary
 
 This first slice provides:
@@ -132,11 +163,11 @@ This first slice provides:
 - Ollama load, generate, metrics, and unload translation.
 - worker execution through the fixture runtime;
 - durable job results and safe runtime failure messages;
-- process-local warm-model reuse.
+- process-local warm-model reuse;
+- persisted residency snapshots and an idle-eviction endpoint.
 
-The next slice adds persisted residency reports and idle eviction. Those features
-will make the in-memory cache visible to operators and allow Conductor to release
-models that have been unused for their configured timeout.
+Memory-pressure eviction and periodic background eviction remain future hardening
+work; the current endpoint makes the policy observable and testable first.
 
 ## Read the code in this order
 

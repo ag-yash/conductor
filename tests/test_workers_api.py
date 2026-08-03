@@ -26,7 +26,7 @@ def _submit(client: TestClient, key: str = "worker-demo") -> dict[str, object]:
     return cast(dict[str, object], response.json())
 
 
-def _register_fixture_model(client: TestClient) -> None:
+def _register_fixture_model(client: TestClient, *, idle_timeout_seconds: int = 300) -> None:
     response = client.post(
         "/api/v1/models",
         json={
@@ -36,7 +36,7 @@ def _register_fixture_model(client: TestClient) -> None:
             "artifact": "fixture://qwen-demo",
             "supported_tasks": ["text.generate"],
             "expected_memory_bytes": 1,
-            "idle_timeout_seconds": 300,
+            "idle_timeout_seconds": idle_timeout_seconds,
         },
     )
     assert response.status_code == 201
@@ -188,3 +188,33 @@ def test_runtime_failure_marks_attempt_and_job_failed(client: TestClient) -> Non
     fetched = client.get(f"/api/v1/jobs/{response.json()['id']}")
     assert fetched.json()["status"] == "failed"
     assert "runtime ollama is not configured" in fetched.json()["error_message"]
+
+
+def test_worker_persists_and_evicts_idle_fixture_residency(client: TestClient) -> None:
+    _register_fixture_model(client, idle_timeout_seconds=0)
+    _register(client)
+    _submit(client, key="eviction-demo")
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    attempt_id = lease.json()["attempt"]["id"]
+    client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/start",
+        headers=_headers(),
+    )
+    executed = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/execute",
+        headers=_headers(),
+    )
+    assert executed.status_code == 200
+
+    residencies = client.get("/api/v1/workers/demo-worker/residencies", headers=_headers())
+    assert residencies.status_code == 200
+    assert residencies.json()[0]["status"] == "ready"
+    assert residencies.json()[0]["active_execution_count"] == 0
+
+    evicted = client.post("/api/v1/workers/demo-worker/evict-idle", headers=_headers())
+    assert evicted.status_code == 200
+    assert [item["status"] for item in evicted.json()] == ["unloading"]
+
+    after_eviction = client.get("/api/v1/workers/demo-worker/residencies", headers=_headers())
+    assert after_eviction.status_code == 200
+    assert after_eviction.json() == []

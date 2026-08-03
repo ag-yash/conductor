@@ -2,18 +2,19 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.job import Job, JobPriority, JobStatus
-from conductor.domain.model import ModelDefinition, RuntimeKind
+from conductor.domain.model import ModelDefinition, ModelResidency, ResidencyStatus, RuntimeKind
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.models.records import (
     AttemptRecord,
     JobRecord,
     ModelDefinitionRecord,
+    ModelResidencyRecord,
     SchedulingDecisionRecord,
     WorkerRecord,
 )
@@ -91,6 +92,25 @@ def _model_to_domain(record: ModelDefinitionRecord) -> ModelDefinition:
         enabled=record.enabled,
         revision=record.revision,
         created_at=_aware(record.created_at),
+    )
+
+
+def _residency_to_domain(record: ModelResidencyRecord) -> ModelResidency:
+    return ModelResidency(
+        id=record.id,
+        model_id=record.model_id,
+        model_revision=record.model_revision,
+        worker_id=record.worker_id,
+        worker_instance_id=record.worker_instance_id,
+        status=ResidencyStatus(record.status),
+        active_execution_count=record.active_execution_count,
+        measured_memory_bytes=record.measured_memory_bytes,
+        loaded_at=_aware(record.loaded_at) if record.loaded_at is not None else None,
+        last_used_at=_aware(record.last_used_at) if record.last_used_at is not None else None,
+        failure_message=record.failure_message,
+        created_at=_aware(record.created_at),
+        updated_at=_aware(record.updated_at),
+        version=record.version,
     )
 
 
@@ -372,3 +392,64 @@ class SqlModelDefinitionRepository:
     def list(self) -> list[ModelDefinition]:
         statement = select(ModelDefinitionRecord).order_by(col(ModelDefinitionRecord.id).asc())
         return [_model_to_domain(record) for record in self._session.exec(statement).all()]
+
+
+class SqlModelResidencyRepository:
+    """Persist the latest known state of each loaded model instance."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def upsert(self, residency: ModelResidency) -> None:
+        record = self._session.get(ModelResidencyRecord, residency.id)
+        if record is None:
+            self._session.add(
+                ModelResidencyRecord(
+                    id=residency.id,
+                    model_id=residency.model_id,
+                    model_revision=residency.model_revision,
+                    worker_id=residency.worker_id,
+                    worker_instance_id=residency.worker_instance_id,
+                    status=residency.status.value,
+                    active_execution_count=residency.active_execution_count,
+                    measured_memory_bytes=residency.measured_memory_bytes,
+                    loaded_at=residency.loaded_at,
+                    last_used_at=residency.last_used_at,
+                    failure_message=residency.failure_message,
+                    created_at=residency.created_at,
+                    updated_at=residency.updated_at,
+                    version=residency.version,
+                )
+            )
+            return
+
+        # Residency is a snapshot, not an append-only event. Replacing the row
+        # keeps the operator view easy to query while the job/attempt tables keep
+        # the durable execution history.
+        record.model_revision = residency.model_revision
+        record.worker_id = residency.worker_id
+        record.worker_instance_id = residency.worker_instance_id
+        record.status = residency.status.value
+        record.active_execution_count = residency.active_execution_count
+        record.measured_memory_bytes = residency.measured_memory_bytes
+        record.loaded_at = residency.loaded_at
+        record.last_used_at = residency.last_used_at
+        record.failure_message = residency.failure_message
+        record.updated_at = residency.updated_at
+        record.version = residency.version
+
+    def list_for_worker(self, worker_id: str, instance_id: str) -> list[ModelResidency]:
+        statement = (
+            select(ModelResidencyRecord)
+            .where(
+                ModelResidencyRecord.worker_id == worker_id,
+                ModelResidencyRecord.worker_instance_id == instance_id,
+            )
+            .order_by(col(ModelResidencyRecord.model_id).asc())
+        )
+        return [_residency_to_domain(record) for record in self._session.exec(statement).all()]
+
+    def delete(self, residency_id: str) -> None:
+        self._session.exec(
+            delete(ModelResidencyRecord).where(ModelResidencyRecord.id == residency_id)
+        )

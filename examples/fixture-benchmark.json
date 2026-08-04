@@ -1,0 +1,12 @@
+{
+  "model_id": "fixture-demo",
+  "task": "text.generate",
+  "input": {
+    "prompt": "Measure this deterministic fixture runtime."
+  },
+  "parameters": {
+    "temperature": 0.2
+  },
+  "warmup_iterations": 1,
+  "measurement_iterations": 3
+}

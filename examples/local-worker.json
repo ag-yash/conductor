@@ -1,0 +1,6 @@
+{
+  "worker_id": "demo-worker",
+  "worker_instance_id": "process-a",
+  "supported_tasks": ["text.generate"],
+  "max_parallel_jobs": 1
+}

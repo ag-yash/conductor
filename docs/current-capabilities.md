@@ -31,6 +31,10 @@ Conductor stores the result and model-residency snapshot
 Inspect residency, benchmark the model, or evict it when idle
 ```
 
+You can perform this flow through the OpenAPI page at `/docs` or through the
+new `conductor` terminal command. [`cli.md`](cli.md) walks through the exact
+commands using the fixture runtime, which needs no model download.
+
 The fixture runtime is the reliable default for tests and demos. Ollama is also
 wired into the runtime registry, but it requires a locally running Ollama server
 and a model you have already pulled.
@@ -45,8 +49,8 @@ and a model you have already pulled.
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations | CPU, memory, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
-| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API | CLI command, dashboard charts, percentile distributions, resource sampling |
-| User experience | OpenAPI page at `/docs` | CLI, dashboard, live updates |
+| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands | Dashboard charts, percentile distributions, resource sampling |
+| User experience | OpenAPI page at `/docs` and a thin terminal CLI | Dashboard and live updates |
 | Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
 
 ## What “implemented” means here

@@ -1,0 +1,9 @@
+{
+  "id": "fixture-demo",
+  "display_name": "Deterministic fixture demo model",
+  "runtime_kind": "fixture",
+  "artifact": "fixture://demo",
+  "supported_tasks": ["text.generate"],
+  "expected_memory_bytes": 1,
+  "idle_timeout_seconds": 300
+}

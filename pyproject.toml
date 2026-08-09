@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 conductor-api = "conductor.main:run"
+conductor = "conductor.cli.main:main"
 
 [project.optional-dependencies]
 dev = [

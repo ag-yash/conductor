@@ -229,7 +229,8 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M2 | Jobs survive restart | `domain/job.py`, `services/jobs.py` |
 | M3 | Workers safely lease and finish jobs | `domain/worker.py`, `services/workers.py` |
 | M4 | Placement decisions are fair and explainable | `scheduler/policy.py` |
-| M5 (current) | Models execute through adapters with warm-model reuse | `domain/model.py`, `runtime/manager.py`, `services/workers.py` |
+| M5 | Models execute through adapters with warm-model reuse | `domain/model.py`, `runtime/manager.py`, `services/workers.py` |
+| M6 (current slice) | CLI stays thin and reuses the existing HTTP contracts | `cli/main.py`, `cli/client.py`, `tests/test_cli.py` |
 
 ## How to read a test
 
@@ -273,5 +274,5 @@ If you want personal scratch notes, create a local `notes/` directory and add it
 1. Why is SQL located in `storage/` rather than `services/`?
 2. Why does the domain not import FastAPI?
 3. Which code owns transaction boundaries?
-4. How would a future CLI reuse current job rules?
+4. How does the current CLI reuse job rules without duplicating them?
 5. Which test would you read first to understand scheduler capacity?

@@ -1,0 +1,10 @@
+{
+  "task": "text.generate",
+  "model_id": "fixture-demo",
+  "input": {
+    "prompt": "Explain why a warm model can be faster."
+  },
+  "parameters": {
+    "temperature": 0.2
+  }
+}

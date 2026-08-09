@@ -55,16 +55,16 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 - Model definition and residency lifecycle.
 - Worker execution through the fixture runtime with durable results.
 - Idle eviction through a testable worker operation; periodic memory-pressure policy remains hardening work.
-- Benchmark API and recorded latency/runtime summaries; CLI command remains M6 work.
+- Benchmark API and recorded latency/runtime summaries.
 
 Demo: run fixture and Ollama models through one task contract, inspect residency,
 benchmark warm execution, and show idle unload behavior.
 
 Concepts introduced: adapter pattern, model metadata versus loaded state, cold starts, resource measurement, eviction policy, runtime isolation, and benchmarking.
 
-## M6 — Operator experience
+## M6 — Operator experience 🚧
 
-- CLI for submit, inspect, list, cancel, and benchmark flows.
+- CLI for submit, inspect, list, cancel, worker operations, model operations, and benchmark flows. **Complete.**
 - Dashboard for jobs, workers, queue, models, resources, and scheduling rationale.
 - Live updates using a minimal justified transport.
 

@@ -3,12 +3,12 @@
 Conductor is an intelligent, local-first AI workload manager for developers. It
 provides a unified way to schedule, run, and observe selected local AI workloads
 while managing model residency responsibly. The complete `v1.0.0` target expands
-this with a CLI, dashboard, ONNX runtime, and deeper resource-aware scheduling.
+this with a dashboard, ONNX runtime, and deeper resource-aware scheduling.
 
 Conductor currently provides a local control plane with durable SQLite jobs,
 explainable worker scheduling, worker leases, trusted model definitions, fixture
 and Ollama runtime adapters, warm-model residency, idle eviction, and recorded
-runtime benchmarks. See [the current-capabilities guide](docs/current-capabilities.md)
+runtime benchmarks, and a terminal CLI. See [the current-capabilities guide](docs/current-capabilities.md)
 for a precise implemented-versus-planned matrix.
 
 ## Product principles
@@ -64,13 +64,17 @@ python -m pip install -e '.[dev]'
 make check
 ```
 
-Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/docs`. The [getting-started guide](docs/getting-started.md) explains the process and configuration, while the [durable jobs guide](docs/jobs.md) demonstrates M2 in plain language.
+Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/docs` or
+use `conductor health` in a second terminal. The [getting-started guide](docs/getting-started.md)
+explains the process and configuration, and [`docs/cli.md`](docs/cli.md) gives a complete runnable demo.
 
 The dashboard toolchain will be added when its first functional milestone begins.
 
 ## Status
 
-M1 and M2 are complete: the control plane is runnable, and its job state is durable, duplicate-safe, tested, strictly typed, and checked in CI. M3 introduces worker processes and deterministic execution; the resource-aware scheduler and real AI runtimes remain deliberately out of scope until worker correctness is proven.
+M1–M5 are complete: the control plane provides durable jobs, workers, explainable
+scheduling, model lifecycle management, runtimes, and benchmarks. M6 is in
+progress: the CLI is available and the dashboard remains planned.
 
 ## Contributing
 

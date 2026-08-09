@@ -14,6 +14,7 @@ Conductor currently provides:
 - runtime benchmark summaries through the worker API.
 - a terminal CLI for the existing API, including models, jobs, worker operations,
   residencies, and benchmarks.
+- a React dashboard overview for readiness, recent jobs, workers, and model definitions.
 
 Use the fixture runtime to learn the full flow without downloading a model. Ollama
 execution is available when you run Ollama locally and register an Ollama model.
@@ -112,7 +113,8 @@ Suggested learning path:
 3. Read [`workers.md`](workers.md) and register a worker.
 4. Follow [`scheduling.md`](scheduling.md) to inspect a placement decision.
 5. Follow [`cli.md`](cli.md) to run the same flow from a terminal.
-6. Stop and restart the API, then confirm that the job still exists.
+6. Follow [`dashboard.md`](dashboard.md) to view the same state in a browser.
+7. Stop and restart the API, then confirm that the job still exists.
 
 ## Common setup problems
 
@@ -141,6 +143,7 @@ Read the structured log with the matching `X-Request-ID`. Database-path or migra
 ## What comes next
 
 The remaining runtime work adds an ONNX adapter and deeper resource measurements.
-M6 has started with the CLI; the dashboard remains planned. Check
+M6 includes the CLI and a read-only dashboard foundation; richer dashboard
+views remain planned. Check
 [`current-capabilities.md`](current-capabilities.md) before relying on a target
 feature described elsewhere.

@@ -297,8 +297,12 @@ class SqlWorkerRepository:
         )
 
     def list(self) -> list[Worker]:
+        # Database row order is not a contract. A stable order keeps CLI and
+        # dashboard snapshots predictable and prevents display-only changes
+        # from looking like a worker-state change.
         return [
-            _worker_to_domain(record) for record in self._session.exec(select(WorkerRecord)).all()
+            _worker_to_domain(record)
+            for record in self._session.exec(select(WorkerRecord).order_by(WorkerRecord.id)).all()
         ]
 
     def update(self, worker: Worker, *, expected_version: int) -> None:

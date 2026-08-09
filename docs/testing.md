@@ -2,7 +2,7 @@
 
 Tests are executable examples of expected behavior. They help us change implementation details without accidentally changing the product contract.
 
-## The four quality gates
+## Backend and dashboard quality gates
 
 `make check` runs:
 
@@ -18,6 +18,21 @@ Black → Ruff → MyPy → Pytest with coverage
 | Pytest | Behavior for written scenarios | Behavior for scenarios nobody wrote |
 
 All gates matter because they find different classes of mistakes.
+
+The browser application has its own checks:
+
+```text
+npm run lint → npm run build
+```
+
+The first command checks TypeScript and React code for common mistakes. The
+second runs TypeScript's compiler and asks Vite to produce the actual browser
+bundle. A dashboard can look correct in source code but still fail to compile;
+the build step catches that before a browser user does.
+
+GitHub Actions runs both the Python gates and these dashboard gates on every
+pull request. The two applications have different toolchains, so keeping their
+checks explicit makes a failed pipeline easier to understand.
 
 ## Unit tests versus integration tests
 
@@ -106,6 +121,13 @@ When a test is confusing, label these phases mentally and identify the user-visi
 idle eviction, and benchmark history. It is an integration test because one HTTP
 request travels through validation, service logic, runtime coordination, SQLite,
 and the response schema.
+
+The dashboard's initial behaviour is simple enough to verify through its lint
+and production build: it is a typed read-only client over existing APIs. The
+new `GET /workers` backend contract is protected by
+`test_operator_can_list_current_registered_workers` in `test_workers_api.py`.
+Later, when the dashboard gains filters, write actions, or live updates, it will
+also receive browser-level interaction tests.
 
 ## Testing concurrency rules
 

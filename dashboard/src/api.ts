@@ -1,4 +1,12 @@
-import type { Health, JobPage, Model, Worker } from "./types";
+import type {
+  Benchmark,
+  Health,
+  JobPage,
+  Model,
+  Residency,
+  SchedulingDecision,
+  Worker,
+} from "./types";
 
 const apiBaseUrl = import.meta.env.VITE_CONDUCTOR_API_URL ?? "/api/v1";
 
@@ -9,9 +17,9 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(path: string): Promise<T> {
+async function getJson<T>(path: string, headers?: HeadersInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...headers },
   });
   if (!response.ok) {
     throw new ApiError(`Conductor returned HTTP ${response.status} for ${path}.`);
@@ -24,4 +32,16 @@ export const api = {
   jobs: () => getJson<JobPage>("/jobs?limit=8&offset=0"),
   models: () => getJson<Model[]>("/models"),
   workers: () => getJson<Worker[]>("/workers"),
+  schedulingDecisions: (jobId: string) =>
+    getJson<SchedulingDecision[]>(`/jobs/${encodeURIComponent(jobId)}/scheduling-decisions`),
+  residencies: (worker: Worker) =>
+    getJson<Residency[]>(
+      `/workers/${encodeURIComponent(worker.id)}/residencies`,
+      { "Worker-Instance-ID": worker.instance_id },
+    ),
+  benchmarks: (worker: Worker) =>
+    getJson<Benchmark[]>(
+      `/workers/${encodeURIComponent(worker.id)}/benchmarks?limit=5`,
+      { "Worker-Instance-ID": worker.instance_id },
+    ),
 };

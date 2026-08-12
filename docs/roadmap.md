@@ -66,7 +66,8 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 
 - CLI for submit, inspect, list, cancel, worker operations, model operations, and benchmark flows. **Complete.**
 - Read-only dashboard overview for API health, recent jobs, workers, and model definitions. **Complete.**
-- Dashboard detail views for jobs, queue state, model residency, resources, and scheduling rationale.
+- Dashboard detail views for job result/error, model residency, benchmark history, and scheduling rationale. **Complete.**
+- Dashboard queue explorer and resource charts.
 - Live updates using a minimal justified transport.
 
 Demo: operate and explain the system without reading terminal logs.

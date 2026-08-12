@@ -1,11 +1,11 @@
-# Dashboard foundation
+# Dashboard
 
 ## What it is
 
 The dashboard is a browser view of Conductor's current control-plane state. It
-is deliberately **read-only** in this first slice. An operator can see whether
-the API is ready and inspect recent jobs, registered workers, and trusted model
-definitions.
+is deliberately **read-only**. An operator can see whether the API is ready,
+inspect recent jobs, registered workers, and trusted model definitions, then
+select a job or worker to investigate the evidence behind it.
 
 The dashboard is not a second scheduler. It asks the existing API for data:
 
@@ -62,6 +62,54 @@ The repository orders workers by ID. Databases do not promise a useful default
 row order; stable ordering avoids a dashboard list randomly shuffling even when
 no worker actually changed.
 
+## Investigating a job
+
+Click a job in **Recent jobs**. The detail panel shows its durable result or
+error, followed by its saved scheduling decision.
+
+For example, when a worker asks for the next job, Conductor takes a snapshot of
+eligible workers and saves why each candidate was accepted or rejected. That
+record is a **scheduling rationale**. It lets you answer a useful operations
+question after the fact:
+
+> Why was this job placed on `demo-worker` instead of another worker?
+
+The dashboard reads it from:
+
+```text
+GET /api/v1/jobs/{job_id}/scheduling-decisions
+```
+
+The browser does not recompute the selection rule. Recomputing it later would
+be misleading because workers may have heartbeated or changed capacity since
+the decision happened. The saved record is the truthful historical answer.
+
+## Investigating a worker
+
+Click a worker in **Workers**. The detail panel makes two related but different
+ideas visible:
+
+1. **Model residency** — which models this exact process has loaded or last
+   reported as loaded.
+2. **Benchmark history** — measurements recorded while that exact process ran
+   a model after warm-up.
+
+Both requests include the worker's `instance_id`. This matters because a worker
+name such as `demo-worker` can survive a restart, while the actual process does
+not. A restart creates a new instance ID, and data from the older process must
+not be treated as data from the new one.
+
+```text
+GET /api/v1/workers/{worker_id}/residencies
+GET /api/v1/workers/{worker_id}/benchmarks
+            + Worker-Instance-ID header
+```
+
+“Model definition” and “model residency” are intentionally separate. A
+definition says Conductor is allowed to use a model. A residency says one
+specific worker process has loaded it. The first is configuration; the second
+is operational state.
+
 ## What each dashboard card means
 
 | Card | Source | Meaning |
@@ -70,6 +118,8 @@ no worker actually changed.
 | Registered workers | `GET /workers` | Current worker identities and their current process instances. |
 | Active jobs | `GET /jobs` | Number of recent jobs with `assigned` or `running` status. This is a useful small-window signal, not a global queue count. |
 | Trusted models | `GET /models` | Definitions the control plane knows about; it does not prove a model is loaded in RAM. |
+| Job detail | `GET /jobs/{job_id}/scheduling-decisions` | The historical candidate evaluation saved when Conductor placed or deferred a job. |
+| Worker detail | `GET /workers/{worker_id}/residencies` and `/benchmarks` | Loaded-model snapshots and warm-runtime measurements for the current worker process. |
 
 That last distinction is important: model **definition** means configured;
 model **residency** means loaded by one particular worker process. See
@@ -85,6 +135,6 @@ model **residency** means loaded by one particular worker process. See
 - Vite proxies `/api` only for local development. Production serving and CORS
   policy belong to a later deployment milestone.
 
-These limits are intentional. First we prove that the UI shows truthful data
-from the authoritative API. Later slices can add charts, detail pages, and live
-updates without changing that boundary.
+These limits are intentional. The dashboard now proves that a UI can show
+truthful current state **and** durable evidence from the authoritative API.
+Later slices can add charts and live updates without changing that boundary.

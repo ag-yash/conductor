@@ -11,16 +11,17 @@ If this is your first time reading the project:
 3. [`codebase-guide.md`](codebase-guide.md) — where code lives and how one request moves through it.
 4. [`getting-started.md`](getting-started.md) — run the current system locally.
 5. [`cli.md`](cli.md) — operate that running system from the terminal.
-6. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
-7. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
-8. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
-9. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
-10. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
-11. [`state-machines.md`](state-machines.md) — understand legal status changes.
-12. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-13. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-14. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-15. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+6. [`dashboard.md`](dashboard.md) — inspect the same system in a local browser.
+7. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
+8. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
+9. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
+10. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
+11. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
+12. [`state-machines.md`](state-machines.md) — understand legal status changes.
+13. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+14. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+15. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+16. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

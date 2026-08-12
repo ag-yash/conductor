@@ -68,6 +68,23 @@ def test_worker_registers_heartbeats_and_replaces_a_restarted_process(client: Te
     assert stale.json()["error"]["code"] == "worker_conflict"
 
 
+def test_operator_can_list_current_registered_workers(client: TestClient) -> None:
+    _register(client)
+    client.post(
+        "/api/v1/workers/register",
+        json={
+            **WORKER,
+            "worker_id": "second-worker",
+            "worker_instance_id": "process-b",
+        },
+    )
+
+    response = client.get("/api/v1/workers")
+
+    assert response.status_code == 200
+    assert [worker["id"] for worker in response.json()] == ["demo-worker", "second-worker"]
+
+
 def test_worker_polls_starts_and_completes_a_deterministic_job(client: TestClient) -> None:
     _register(client)
     job = _submit(client)

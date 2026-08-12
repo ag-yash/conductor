@@ -35,6 +35,9 @@ You can perform this flow through the OpenAPI page at `/docs` or through the
 new `conductor` terminal command. [`cli.md`](cli.md) walks through the exact
 commands using the fixture runtime, which needs no model download.
 
+The same current state is also visible in the local browser dashboard. It is a
+read-only API client, not a separate source of state; see [`dashboard.md`](dashboard.md).
+
 The fixture runtime is the reliable default for tests and demos. Ollama is also
 wired into the runtime registry, but it requires a locally running Ollama server
 and a model you have already pulled.
@@ -45,12 +48,12 @@ and a model you have already pulled.
 | --- | --- | --- |
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
 | Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence | Running-job cancellation, retries, lease-expiry recovery |
-| Workers | Register, heartbeat, drain, polling, process-instance protection, fixed execution-slot scheduling | Separate long-running worker executable and automatic failure detection |
+| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution-slot scheduling | Separate long-running worker executable and automatic failure detection |
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations | CPU, memory, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
 | Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands | Dashboard charts, percentile distributions, resource sampling |
-| User experience | OpenAPI page at `/docs` and a thin terminal CLI | Dashboard and live updates |
+| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard overview | Dashboard detail views, write actions, and live updates |
 | Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
 
 ## What “implemented” means here
@@ -90,6 +93,7 @@ design decisions that future code must satisfy.
 | How is a model kept warm? | `runtime/manager.py` |
 | How is a benchmark stored? | `services/workers.py` → `domain/benchmark.py` → `storage/repositories.py` |
 | How do tests prove the HTTP flow? | `tests/test_workers_api.py` |
+| How does the dashboard avoid becoming a second control plane? | `dashboard/src/api.ts` → `api/workers.py` → `services/workers.py` |
 
 ## Current limitations worth remembering
 

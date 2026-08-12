@@ -93,6 +93,17 @@ class WorkerService:
                 raise WorkerConflict("worker registration raced with another update") from error
             return worker
 
+    def list_workers(self) -> list[Worker]:
+        """Return current worker snapshots for operator-facing read-only views.
+
+        A dashboard needs to show the same durable worker state used by the
+        scheduler. Reading through this service keeps the API from reaching
+        into a repository directly and creating a second source of truth.
+        """
+
+        with self._uow_factory() as uow:
+            return uow.workers.list()
+
     def heartbeat(self, worker_id: str, instance_id: str) -> Worker:
         with self._uow_factory() as uow:
             worker = self._current_worker(uow.workers.get(worker_id), instance_id)

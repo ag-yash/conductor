@@ -29,3 +29,29 @@ jobs:
 
       - name: Run checks
         run: make check
+
+  dashboard:
+    name: Dashboard quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Lint and build dashboard
+        working-directory: dashboard
+        run: |
+          npm run lint
+          npm run build

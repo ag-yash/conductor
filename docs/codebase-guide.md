@@ -231,6 +231,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M4 | Placement decisions are fair and explainable | `scheduler/policy.py` |
 | M5 | Models execute through adapters with warm-model reuse | `domain/model.py`, `runtime/manager.py`, `services/workers.py` |
 | M6 (current slice) | CLI stays thin and reuses the existing HTTP contracts | `cli/main.py`, `cli/client.py`, `tests/test_cli.py` |
+| M6 (dashboard slice) | Browser overview remains a read-only API client | `dashboard/src/App.tsx`, `dashboard/src/api.ts`, `api/workers.py` |
 
 ## How to read a test
 

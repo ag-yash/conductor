@@ -65,7 +65,8 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 ## M6 — Operator experience 🚧
 
 - CLI for submit, inspect, list, cancel, worker operations, model operations, and benchmark flows. **Complete.**
-- Dashboard for jobs, workers, queue, models, resources, and scheduling rationale.
+- Read-only dashboard overview for API health, recent jobs, workers, and model definitions. **Complete.**
+- Dashboard detail views for jobs, queue state, model residency, resources, and scheduling rationale.
 - Live updates using a minimal justified transport.
 
 Demo: operate and explain the system without reading terminal logs.

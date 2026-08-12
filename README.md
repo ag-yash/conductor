@@ -3,12 +3,12 @@
 Conductor is an intelligent, local-first AI workload manager for developers. It
 provides a unified way to schedule, run, and observe selected local AI workloads
 while managing model residency responsibly. The complete `v1.0.0` target expands
-this with a dashboard, ONNX runtime, and deeper resource-aware scheduling.
+this with richer dashboard views, an ONNX runtime, and deeper resource-aware scheduling.
 
 Conductor currently provides a local control plane with durable SQLite jobs,
 explainable worker scheduling, worker leases, trusted model definitions, fixture
 and Ollama runtime adapters, warm-model residency, idle eviction, and recorded
-runtime benchmarks, and a terminal CLI. See [the current-capabilities guide](docs/current-capabilities.md)
+runtime benchmarks, a terminal CLI, and a local dashboard overview. See [the current-capabilities guide](docs/current-capabilities.md)
 for a precise implemented-versus-planned matrix.
 
 ## Product principles
@@ -64,17 +64,17 @@ python -m pip install -e '.[dev]'
 make check
 ```
 
-Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/docs` or
-use `conductor health` in a second terminal. The [getting-started guide](docs/getting-started.md)
-explains the process and configuration, and [`docs/cli.md`](docs/cli.md) gives a complete runnable demo.
-
-The dashboard toolchain will be added when its first functional milestone begins.
+Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/docs`,
+use `conductor health`, or start the local browser dashboard. The
+[getting-started guide](docs/getting-started.md) explains the process and configuration;
+[`docs/cli.md`](docs/cli.md) and [`docs/dashboard.md`](docs/dashboard.md) give runnable demos.
 
 ## Status
 
 M1–M5 are complete: the control plane provides durable jobs, workers, explainable
 scheduling, model lifecycle management, runtimes, and benchmarks. M6 is in
-progress: the CLI is available and the dashboard remains planned.
+progress: the CLI and a read-only dashboard overview are available; richer views
+and live updates remain planned.
 
 ## Contributing
 

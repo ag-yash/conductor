@@ -180,6 +180,13 @@ def _service(request: Request) -> WorkerService:
     return service
 
 
+@router.get("", response_model=list[WorkerResponse])
+def list_workers(request: Request) -> list[WorkerResponse]:
+    """List the latest durable view of every registered worker."""
+
+    return [WorkerResponse.from_domain(worker) for worker in _service(request).list_workers()]
+
+
 @router.post("/register", response_model=WorkerResponse, status_code=status.HTTP_201_CREATED)
 def register_worker(payload: RegisterWorkerRequest, request: Request) -> WorkerResponse:
     worker = _service(request).register(

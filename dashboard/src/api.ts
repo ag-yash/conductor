@@ -29,7 +29,14 @@ async function getJson<T>(path: string, headers?: HeadersInit): Promise<T> {
 
 export const api = {
   ready: () => getJson<Health>("/health/ready"),
-  jobs: () => getJson<JobPage>("/jobs?limit=8&offset=0"),
+  jobs: (options: { status?: string; limit?: number; offset?: number } = {}) => {
+    const query = new URLSearchParams({
+      limit: String(options.limit ?? 8),
+      offset: String(options.offset ?? 0),
+    });
+    if (options.status !== undefined) query.set("status", options.status);
+    return getJson<JobPage>(`/jobs?${query.toString()}`);
+  },
   models: () => getJson<Model[]>("/models"),
   workers: () => getJson<Worker[]>("/workers"),
   schedulingDecisions: (jobId: string) =>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { api } from "./api";
+import { QueueExplorer } from "./QueueExplorer";
 import type {
   Benchmark,
   Health,
@@ -204,6 +205,8 @@ export function App() {
           </div>
         </article>
       </section>
+
+      <QueueExplorer selectedJobId={selectedJob?.id ?? null} onSelectJob={setSelectedJob} />
 
       {selectedJob || selectedWorker ? <section className="detail-grid" aria-label="Selected investigation details">
         {selectedJob ? <JobDetail job={selectedJob} decisions={decisions} error={detailError} onClose={() => setSelectedJob(null)} /> : null}

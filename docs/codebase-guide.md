@@ -233,6 +233,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M6 (current slice) | CLI stays thin and reuses the existing HTTP contracts | `cli/main.py`, `cli/client.py`, `tests/test_cli.py` |
 | M6 (dashboard slice) | Browser overview remains a read-only API client | `dashboard/src/App.tsx`, `dashboard/src/api.ts`, `api/workers.py` |
 | M6 (detail slice) | UI shows persisted evidence instead of recreating past decisions | `dashboard/src/App.tsx`, `api/jobs.py`, `services/workers.py` |
+| M6 (queue slice) | UI reads a large durable list in bounded API pages | `dashboard/src/QueueExplorer.tsx`, `api/jobs.py`, `services/jobs.py` |
 
 ## How to read a test
 

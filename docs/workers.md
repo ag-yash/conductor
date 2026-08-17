@@ -124,11 +124,19 @@ READY → DRAINING
 
 A draining worker may still report its current attempt. The scheduler simply excludes it from new placements.
 
-## Scope of this milestone
+## What is implemented now, and what is still planned
 
-M3 deliberately uses a predictable success path. It proves the worker/control-plane protocol before we attach an actual AI model runtime in M5. M4 adds smarter worker selection, retry policy, and capacity accounting.
+M3 began with a predictable success path. That was intentional: it proved the
+worker/control-plane protocol before any real AI integration was added.
 
-M4 now adds task, readiness, and slot-aware placement. Lease expiry, automatic retry, and real runtime calls remain later work.
+Today, the same worker flow can execute either the deterministic fixture runtime
+or a configured local Ollama runtime through the explicit `/execute` endpoint.
+The result or safe failure message is stored durably. M4 adds task, readiness,
+and slot-aware placement.
+
+Lease expiry and automatic retry are still planned. See
+[`models-and-runtimes.md`](models-and-runtimes.md) for the model-loading and
+runtime part of the flow.
 
 ## Follow leasing through the code
 

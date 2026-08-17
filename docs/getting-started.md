@@ -1,6 +1,6 @@
 # Getting started with Conductor
 
-## What exists now (through the first M6 operator-experience slice)
+## What exists now (through the current M6 operator-experience slice)
 
 Conductor currently provides:
 
@@ -14,7 +14,8 @@ Conductor currently provides:
 - runtime benchmark summaries through the worker API.
 - a terminal CLI for the existing API, including models, jobs, worker operations,
   residencies, and benchmarks.
-- a React dashboard overview for readiness, recent jobs, workers, and model definitions.
+- a React dashboard with readiness and recent-state summaries, clickable job and
+  worker investigation views, and a filterable, paginated queue explorer.
 
 Use the fixture runtime to learn the full flow without downloading a model. Ollama
 execution is available when you run Ollama locally and register an Ollama model.
@@ -143,7 +144,7 @@ Read the structured log with the matching `X-Request-ID`. Database-path or migra
 ## What comes next
 
 The remaining runtime work adds an ONNX adapter and deeper resource measurements.
-M6 includes the CLI and a read-only dashboard foundation; richer dashboard
-views remain planned. Check
+M6 includes the CLI plus read-only dashboard summaries and investigation views;
+resource charts and live updates remain planned. Check
 [`current-capabilities.md`](current-capabilities.md) before relying on a target
 feature described elsewhere.

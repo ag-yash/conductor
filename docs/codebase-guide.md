@@ -6,7 +6,7 @@ This is a learning guide, not a replacement for the technical design documents. 
 
 Conductor has one simple job: accept AI work, decide which local worker should do it, and remember what happened even after a restart.
 
-For M4, the easiest story is:
+The easiest current story is:
 
 ```text
 Client submits a job
@@ -221,7 +221,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 
 `backend/migrations/versions/` contains numbered database changes. An existing developer database may already have migrations `0001` and `0002`, so adding a table requires `0003` rather than rewriting history.
 
-## M1–M4 map
+## Milestone map
 
 | Milestone | Main idea | Read first |
 | --- | --- | --- |

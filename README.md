@@ -8,7 +8,8 @@ this with richer dashboard views, an ONNX runtime, and deeper resource-aware sch
 Conductor currently provides a local control plane with durable SQLite jobs,
 explainable worker scheduling, worker leases, trusted model definitions, fixture
 and Ollama runtime adapters, warm-model residency, idle eviction, and recorded
-runtime benchmarks, a terminal CLI, and a local dashboard overview. See [the current-capabilities guide](docs/current-capabilities.md)
+runtime benchmarks, a terminal CLI, and a local dashboard with summary, detail,
+and queue-investigation views. See [the current-capabilities guide](docs/current-capabilities.md)
 for a precise implemented-versus-planned matrix.
 
 ## Product principles
@@ -73,8 +74,8 @@ use `conductor health`, or start the local browser dashboard. The
 
 M1–M5 are complete: the control plane provides durable jobs, workers, explainable
 scheduling, model lifecycle management, runtimes, and benchmarks. M6 is in
-progress: the CLI and a read-only dashboard overview are available; richer views
-and live updates remain planned.
+progress: the CLI and read-only dashboard investigation views are available;
+resource charts and live updates remain planned.
 
 ## Contributing
 

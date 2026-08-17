@@ -110,6 +110,31 @@ definition says Conductor is allowed to use a model. A residency says one
 specific worker process has loaded it. The first is configuration; the second
 is operational state.
 
+## Exploring a larger queue
+
+The overview shows only recent jobs so it stays small and quick. **Queue
+explorer** is for looking through a larger set of durable jobs.
+
+Choose a status such as `queued`, `running`, `succeeded`, or `failed`, then use
+**Previous** and **Next** to move through pages of ten jobs. Selecting any job
+opens the same evidence panel described above.
+
+The dashboard asks the existing jobs API for only the needed slice:
+
+```text
+GET /api/v1/jobs?status=queued&limit=11&offset=20
+```
+
+`offset=20` means “skip the first twenty matching jobs.” The dashboard displays
+the first ten rows and uses the eleventh as a look-ahead row. If that extra row
+exists, **Next** is enabled; if it does not, the current page is the last one.
+
+Why not ask for the total number of jobs? A total-count query can become costly
+for a large queue. This look-ahead pattern gives the operator the only answer
+needed for navigation—“is there another page?”—while keeping each request
+bounded. It is a small example of **pagination**, meaning reading a large list
+in stable-sized pieces rather than loading the whole list at once.
+
 ## What each dashboard card means
 
 | Card | Source | Meaning |
@@ -120,6 +145,7 @@ is operational state.
 | Trusted models | `GET /models` | Definitions the control plane knows about; it does not prove a model is loaded in RAM. |
 | Job detail | `GET /jobs/{job_id}/scheduling-decisions` | The historical candidate evaluation saved when Conductor placed or deferred a job. |
 | Worker detail | `GET /workers/{worker_id}/residencies` and `/benchmarks` | Loaded-model snapshots and warm-runtime measurements for the current worker process. |
+| Queue explorer | `GET /jobs?status=...&limit=11&offset=...` | A filterable, paginated view of durable jobs. |
 
 That last distinction is important: model **definition** means configured;
 model **residency** means loaded by one particular worker process. See
@@ -129,7 +155,8 @@ model **residency** means loaded by one particular worker process. See
 
 - The page fetches state on load and when **Refresh** is pressed; it does not
   yet use polling or WebSockets.
-- It displays the most recent eight jobs, not a paginated job explorer.
+- It displays the most recent eight jobs in the overview, while Queue explorer
+  has status filters and forward/backward pagination.
 - It has no write actions. Continue using the CLI or OpenAPI page for job and
   worker operations.
 - Vite proxies `/api` only for local development. Production serving and CORS

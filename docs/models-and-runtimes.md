@@ -161,7 +161,7 @@ The current M5 implementation provides:
 - a common runtime adapter protocol;
 - deterministic fixture execution;
 - Ollama load, generate, metrics, and unload translation.
-- worker execution through the fixture runtime;
+- worker execution through the fixture runtime or a configured local Ollama runtime;
 - durable job results and safe runtime failure messages;
 - process-local warm-model reuse;
 - persisted residency snapshots and an idle-eviction endpoint.

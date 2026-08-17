@@ -6,7 +6,7 @@ This is a learning guide, not a replacement for the technical design documents. 
 
 Conductor has one simple job: accept AI work, decide which local worker should do it, and remember what happened even after a restart.
 
-For M4, the easiest story is:
+The easiest current story is:
 
 ```text
 Client submits a job
@@ -221,7 +221,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 
 `backend/migrations/versions/` contains numbered database changes. An existing developer database may already have migrations `0001` and `0002`, so adding a table requires `0003` rather than rewriting history.
 
-## M1–M4 map
+## Milestone map
 
 | Milestone | Main idea | Read first |
 | --- | --- | --- |
@@ -233,6 +233,7 @@ Keeping translation central prevents one route from returning `404` while anothe
 | M6 (current slice) | CLI stays thin and reuses the existing HTTP contracts | `cli/main.py`, `cli/client.py`, `tests/test_cli.py` |
 | M6 (dashboard slice) | Browser overview remains a read-only API client | `dashboard/src/App.tsx`, `dashboard/src/api.ts`, `api/workers.py` |
 | M6 (detail slice) | UI shows persisted evidence instead of recreating past decisions | `dashboard/src/App.tsx`, `api/jobs.py`, `services/workers.py` |
+| M6 (queue slice) | UI reads a large durable list in bounded API pages | `dashboard/src/QueueExplorer.tsx`, `api/jobs.py`, `services/jobs.py` |
 
 ## How to read a test
 

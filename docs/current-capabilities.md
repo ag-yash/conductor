@@ -52,8 +52,8 @@ and a model you have already pulled.
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations | CPU, memory, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
-| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands | Dashboard charts, percentile distributions, resource sampling |
-| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details and queue explorer | Dashboard write actions and live updates |
+| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions and host-resource sampling |
+| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, and benchmark timing insight | Dashboard write actions, host-resource charts, and live updates |
 | Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
 
 ## What “implemented” means here

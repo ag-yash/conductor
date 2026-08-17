@@ -230,16 +230,52 @@ function WorkerDetail({ worker, residencies, benchmarks, error, onClose }: { wor
     <p className="secondary">Current process instance: {worker.instance_id}. A restart changes this ID, so old process messages cannot update new worker state.</p>
     {error ? <p className="detail-error">{error}</p> : <>
       <DetailBlock title="Model residency"><p className="hint">A residency means a specific worker process has loaded a model. It is different from merely registering a model definition.</p>{residencies === null ? <p className="empty">Loading residency snapshots…</p> : residencies.length === 0 ? <EmptyState message="No model is currently recorded as resident on this worker." /> : residencies.map((residency) => <div className="residency" key={residency.id}><div><strong>{residency.model_id}</strong><span className="secondary">Last used {formatTime(residency.last_used_at)} · {residency.active_execution_count} active executions</span></div><Badge value={residency.status} /></div>)}</DetailBlock>
-      <DetailBlock title="Recent benchmarks"><p className="hint">These are warm-runtime execution measurements, not model-quality scores.</p>{benchmarks === null ? <p className="empty">Loading benchmark history…</p> : benchmarks.length === 0 ? <EmptyState message="No benchmark has been recorded for this worker process." /> : benchmarks.map((benchmark) => <div className="benchmark" key={benchmark.id}><div><strong>{benchmark.model_id} · {benchmark.task}</strong><span className="secondary">{benchmark.measurement_iterations} measured runs after {benchmark.warmup_iterations} warmups</span></div><strong>{benchmark.mean_wall_time_ms.toFixed(3)} ms mean</strong></div>)}</DetailBlock>
+      <DetailBlock title="Recent benchmarks"><p className="hint">These are warm-runtime execution measurements, not model-quality scores.</p>{benchmarks === null ? <p className="empty">Loading benchmark history…</p> : benchmarks.length === 0 ? <EmptyState message="No benchmark has been recorded for this worker process." /> : <><BenchmarkInsights benchmarks={benchmarks} />{benchmarks.map((benchmark) => <div className="benchmark" key={benchmark.id}><div><strong>{benchmark.model_id} · {benchmark.task}</strong><span className="secondary">{benchmark.measurement_iterations} measured runs after {benchmark.warmup_iterations} warmups</span></div><strong>{benchmark.mean_wall_time_ms.toFixed(3)} ms mean</strong></div>)}</>}</DetailBlock>
     </>}
   </article>;
+}
+
+function BenchmarkInsights({ benchmarks }: { benchmarks: Benchmark[] }) {
+  // The API returns newest first. Reversing a copy makes time move left to right
+  // in the visual without changing the persisted ordering used by the list below.
+  const chronological = [...benchmarks].reverse();
+  const means = chronological.map((benchmark) => benchmark.mean_wall_time_ms);
+  const fastest = Math.min(...means);
+  const slowest = Math.max(...means);
+  const latest = benchmarks[0];
+  const range = slowest - fastest;
+
+  return <section className="benchmark-insights" aria-label="Benchmark timing insight">
+    <p className="hint">Each bar is one saved warm-runtime benchmark. Taller bars mean a higher average elapsed time; this is timing data, not laptop CPU or RAM usage.</p>
+    <div className="timing-summary">
+      <InsightMetric label="Fastest mean" value={formatMilliseconds(fastest)} />
+      <InsightMetric label="Slowest mean" value={formatMilliseconds(slowest)} />
+      <InsightMetric label="Latest mean" value={formatMilliseconds(latest.mean_wall_time_ms)} />
+    </div>
+    <ol className="timing-chart">
+      {chronological.map((benchmark, index) => {
+        // A single data point (or equal timings) still needs a visible bar. The
+        // label remains the authoritative value; the bar only helps comparison.
+        const height = range === 0 ? 100 : 24 + ((benchmark.mean_wall_time_ms - fastest) / range) * 76;
+        return <li key={benchmark.id} className="timing-bar-item">
+          <span className="timing-value">{formatMilliseconds(benchmark.mean_wall_time_ms)}</span>
+          <span className="timing-bar" style={{ height: `${height}%` }} title={`Benchmark ${index + 1}: ${formatMilliseconds(benchmark.mean_wall_time_ms)}`} />
+          <span className="timing-label">{formatTime(benchmark.created_at)}</span>
+        </li>;
+      })}
+    </ol>
+    {Object.keys(latest.mean_runtime_metrics).length > 0 ? <div className="runtime-metrics"><p className="hint">Latest adapter-reported metrics</p>{Object.entries(latest.mean_runtime_metrics).map(([name, value]) => <span className="runtime-metric" key={name}><strong>{name}</strong> {formatMetricValue(value)}</span>)}</div> : null}
+  </section>;
 }
 
 function DetailHeading({ title, onClose }: { title: string; onClose: () => void }) { return <header className="detail-heading"><h3>{title}</h3><button className="close-button" onClick={onClose}>Close</button></header>; }
 function DetailBlock({ title, children }: { title: string; children: ReactNode }) { return <section className="detail-block"><h4>{title}</h4>{children}</section>; }
 function CodeBlock({ value, empty }: { value: Record<string, unknown> | null; empty: string }) { return value === null ? <EmptyState message={empty} /> : <pre>{formatJson(value)}</pre>; }
 function Metric({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "good" | "warn" | "neutral" }) { return <article className="metric"><p>{label}</p><strong className={tone}>{value}</strong></article>; }
+function InsightMetric({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
 function PanelHeading({ title, subtitle }: { title: string; subtitle: string }) { return <header className="panel-heading"><h3>{title}</h3><p>{subtitle}</p></header>; }
 function Badge({ value }: { value: string }) { return <span className={`badge ${statusTone(value)}`}>{value.replaceAll("_", " ")}</span>; }
 function EmptyState({ message }: { message: string }) { return <p className="empty">{message}</p>; }
 function readableError(reason: unknown): string { return reason instanceof Error ? reason.message : "Could not load this detail."; }
+function formatMilliseconds(value: number): string { return `${value.toFixed(3)} ms`; }
+function formatMetricValue(value: number): string { return Number.isInteger(value) ? String(value) : value.toFixed(3); }

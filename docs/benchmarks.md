@@ -119,6 +119,21 @@ Example of an unfair comparison:
 Short prompt on one model versus long prompt on another model
 ```
 
+## Reading the dashboard timing chart
+
+The worker-detail page turns the most recent saved benchmark summaries into a
+small chart. It is a convenience view over the same durable records returned by
+the benchmark API; the browser does not re-run the model or invent a timing.
+
+It compares **mean wall-clock time** only. If one bar is taller than another,
+the corresponding benchmark took longer on average. This can help you notice a
+change after updating a model, changing a prompt, or running the laptop under a
+different load.
+
+Do not call it a hardware-resource chart. Conductor currently does not sample
+overall RAM, CPU, GPU, or battery use. Those measurements need a separate,
+well-defined collection path so that their units and meaning are trustworthy.
+
 ## Failure behavior
 
 If the runtime fails during a benchmark, Conductor records the latest residency

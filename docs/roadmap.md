@@ -68,7 +68,8 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 - Read-only dashboard overview for API health, recent jobs, workers, and model definitions. **Complete.**
 - Dashboard detail views for job result/error, model residency, benchmark history, and scheduling rationale. **Complete.**
 - Dashboard queue explorer with status filters and bounded pagination. **Complete.**
-- Dashboard resource charts.
+- Dashboard benchmark timing insight using persisted runtime summaries. **Complete.**
+- Dashboard host-resource charts after resource sampling exists.
 - Live updates using a minimal justified transport.
 
 Demo: operate and explain the system without reading terminal logs.

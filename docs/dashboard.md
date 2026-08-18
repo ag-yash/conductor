@@ -135,6 +135,26 @@ needed for navigation—“is there another page?”—while keeping each reques
 bounded. It is a small example of **pagination**, meaning reading a large list
 in stable-sized pieces rather than loading the whole list at once.
 
+## Reading benchmark timing insight
+
+When you select a worker with saved benchmark history, **Recent benchmarks**
+also includes a small timing chart. Each bar is one durable benchmark summary;
+the bars run from the oldest displayed summary on the left to the newest on the
+right.
+
+The chart uses `mean_wall_time_ms`, the average elapsed time across that
+benchmark's measured runs. For example, a `20 ms` bar means that the timed runs
+in that one benchmark averaged 20 milliseconds after warm-up. A taller bar
+means a slower average execution, not a better or worse model.
+
+The summary cards show the fastest, slowest, and latest mean. If the selected
+runtime reports extra numeric values, such as an Ollama evaluation count, the
+latest values appear below the chart exactly as the adapter reported them.
+
+This view deliberately does **not** claim to show host CPU or RAM consumption.
+Conductor does not collect that data yet, and showing a made-up estimate would
+be misleading. Host-resource sampling is a later capability.
+
 ## What each dashboard card means
 
 | Card | Source | Meaning |
@@ -145,6 +165,7 @@ in stable-sized pieces rather than loading the whole list at once.
 | Trusted models | `GET /models` | Definitions the control plane knows about; it does not prove a model is loaded in RAM. |
 | Job detail | `GET /jobs/{job_id}/scheduling-decisions` | The historical candidate evaluation saved when Conductor placed or deferred a job. |
 | Worker detail | `GET /workers/{worker_id}/residencies` and `/benchmarks` | Loaded-model snapshots and warm-runtime measurements for the current worker process. |
+| Benchmark timing insight | Existing benchmark history in the worker detail | A visual comparison of saved mean wall-clock timings; it is not a CPU/RAM chart. |
 | Queue explorer | `GET /jobs?status=...&limit=11&offset=...` | A filterable, paginated view of durable jobs. |
 
 That last distinction is important: model **definition** means configured;

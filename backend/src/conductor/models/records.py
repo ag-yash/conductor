@@ -156,3 +156,22 @@ class BenchmarkSummaryRecord(SQLModel, table=True):
     max_wall_time_ms: float
     mean_runtime_metrics: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class WorkerResourceSnapshotRecord(SQLModel, table=True):
+    """Append-only host and process measurements reported by one worker."""
+
+    __tablename__ = "worker_resource_snapshots"
+    __table_args__ = (
+        Index("ix_worker_resource_snapshots_worker_created", "worker_id", "observed_at"),
+    )
+
+    id: str = Field(primary_key=True)
+    worker_id: str
+    worker_instance_id: str
+    host_cpu_percent: float
+    host_total_memory_bytes: int
+    host_available_memory_bytes: int
+    process_cpu_percent: float
+    process_memory_bytes: int
+    observed_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))

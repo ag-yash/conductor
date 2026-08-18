@@ -7,6 +7,7 @@ from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.job import Job, JobStatus
 from conductor.domain.model import ModelDefinition, ModelResidency
+from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker
 from conductor.scheduler.policy import PlacementDecision, RecordedSchedulingDecision
 
@@ -96,6 +97,20 @@ class BenchmarkSummaryRepository(Protocol):
     ) -> list[BenchmarkSummary]: ...
 
 
+class WorkerResourceSnapshotRepository(Protocol):
+    """Immutable worker-reported host and process measurements."""
+
+    def add(self, snapshot: WorkerResourceSnapshot) -> None: ...
+
+    def list_for_worker(
+        self, worker_id: str, instance_id: str, limit: int
+    ) -> list[WorkerResourceSnapshot]: ...
+
+    def latest_for_worker(
+        self, worker_id: str, instance_id: str
+    ) -> WorkerResourceSnapshot | None: ...
+
+
 class UnitOfWork(Protocol):
     """One atomic application transaction."""
 
@@ -106,6 +121,7 @@ class UnitOfWork(Protocol):
     model_definitions: ModelDefinitionRepository
     model_residencies: ModelResidencyRepository
     benchmark_summaries: BenchmarkSummaryRepository
+    worker_resource_snapshots: WorkerResourceSnapshotRepository
 
     def __enter__(self) -> Self: ...
 

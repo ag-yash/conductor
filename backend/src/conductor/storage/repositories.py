@@ -10,6 +10,7 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.job import Job, JobPriority, JobStatus
 from conductor.domain.model import ModelDefinition, ModelResidency, ResidencyStatus, RuntimeKind
+from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.models.records import (
     AttemptRecord,
@@ -19,6 +20,7 @@ from conductor.models.records import (
     ModelResidencyRecord,
     SchedulingDecisionRecord,
     WorkerRecord,
+    WorkerResourceSnapshotRecord,
 )
 from conductor.scheduler.policy import (
     CandidateExplanation,
@@ -132,6 +134,20 @@ def _benchmark_to_domain(record: BenchmarkSummaryRecord) -> BenchmarkSummary:
         max_wall_time_ms=record.max_wall_time_ms,
         mean_runtime_metrics=record.mean_runtime_metrics,
         created_at=_aware(record.created_at),
+    )
+
+
+def _resource_snapshot_to_domain(record: WorkerResourceSnapshotRecord) -> WorkerResourceSnapshot:
+    return WorkerResourceSnapshot(
+        id=record.id,
+        worker_id=record.worker_id,
+        worker_instance_id=record.worker_instance_id,
+        host_cpu_percent=record.host_cpu_percent,
+        host_total_memory_bytes=record.host_total_memory_bytes,
+        host_available_memory_bytes=record.host_available_memory_bytes,
+        process_cpu_percent=record.process_cpu_percent,
+        process_memory_bytes=record.process_memory_bytes,
+        observed_at=_aware(record.observed_at),
     )
 
 
@@ -352,6 +368,8 @@ class SqlSchedulingDecisionRepository:
                         "reason": candidate.reason,
                         "active_slots": candidate.active_slots,
                         "max_parallel_jobs": candidate.max_parallel_jobs,
+                        "available_memory_bytes": candidate.available_memory_bytes,
+                        "required_memory_bytes": candidate.required_memory_bytes,
                     }
                     for candidate in decision.candidates
                 ],
@@ -379,6 +397,8 @@ class SqlSchedulingDecisionRepository:
                         reason=candidate["reason"],
                         active_slots=candidate["active_slots"],
                         max_parallel_jobs=candidate["max_parallel_jobs"],
+                        available_memory_bytes=candidate.get("available_memory_bytes"),
+                        required_memory_bytes=candidate.get("required_memory_bytes"),
                     )
                     for candidate in record.candidates
                 ),
@@ -525,3 +545,48 @@ class SqlBenchmarkSummaryRepository:
             .limit(limit)
         )
         return [_benchmark_to_domain(record) for record in self._session.exec(statement).all()]
+
+
+class SqlWorkerResourceSnapshotRepository:
+    """Keep a bounded-query, append-only history of worker measurements."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, snapshot: WorkerResourceSnapshot) -> None:
+        self._session.add(
+            WorkerResourceSnapshotRecord(
+                id=snapshot.id,
+                worker_id=snapshot.worker_id,
+                worker_instance_id=snapshot.worker_instance_id,
+                host_cpu_percent=snapshot.host_cpu_percent,
+                host_total_memory_bytes=snapshot.host_total_memory_bytes,
+                host_available_memory_bytes=snapshot.host_available_memory_bytes,
+                process_cpu_percent=snapshot.process_cpu_percent,
+                process_memory_bytes=snapshot.process_memory_bytes,
+                observed_at=snapshot.observed_at,
+            )
+        )
+
+    def list_for_worker(
+        self, worker_id: str, instance_id: str, limit: int
+    ) -> list[WorkerResourceSnapshot]:
+        statement = (
+            select(WorkerResourceSnapshotRecord)
+            .where(
+                WorkerResourceSnapshotRecord.worker_id == worker_id,
+                WorkerResourceSnapshotRecord.worker_instance_id == instance_id,
+            )
+            .order_by(
+                col(WorkerResourceSnapshotRecord.observed_at).desc(),
+                col(WorkerResourceSnapshotRecord.id).desc(),
+            )
+            .limit(limit)
+        )
+        return [
+            _resource_snapshot_to_domain(record) for record in self._session.exec(statement).all()
+        ]
+
+    def latest_for_worker(self, worker_id: str, instance_id: str) -> WorkerResourceSnapshot | None:
+        snapshots = self.list_for_worker(worker_id, instance_id, limit=1)
+        return snapshots[0] if snapshots else None

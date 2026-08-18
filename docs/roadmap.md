@@ -69,7 +69,8 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 - Dashboard detail views for job result/error, model residency, benchmark history, and scheduling rationale. **Complete.**
 - Dashboard queue explorer with status filters and bounded pagination. **Complete.**
 - Dashboard benchmark timing insight using persisted runtime summaries. **Complete.**
-- Dashboard host-resource charts after resource sampling exists.
+- Worker-reported CPU/RAM snapshots, durable history, memory-headroom deferral, and latest dashboard view. **Complete.**
+- Historical host-resource charts and periodic telemetry collection.
 - Live updates using a minimal justified transport.
 
 Demo: operate and explain the system without reading terminal logs.

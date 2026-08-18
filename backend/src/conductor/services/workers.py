@@ -9,8 +9,9 @@ from uuid import uuid4
 from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.errors import InvalidStateTransition
-from conductor.domain.job import Job, JobStatus
+from conductor.domain.job import Job, JobStatus, utc_now
 from conductor.domain.model import ModelResidency
+from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.runtime.base import RuntimeAdapterError
 from conductor.runtime.manager import RuntimeManager
@@ -55,6 +56,17 @@ class BenchmarkCommand:
     parameters: Mapping[str, Any]
     warmup_iterations: int
     measurement_iterations: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecordResourceSnapshotCommand:
+    """Measurements a current worker process reports about its local machine."""
+
+    host_cpu_percent: float
+    host_total_memory_bytes: int
+    host_available_memory_bytes: int
+    process_cpu_percent: float
+    process_memory_bytes: int
 
 
 class WorkerService:
@@ -147,10 +159,18 @@ class WorkerService:
                     active_slots=uow.attempts.count_active_for_worker(
                         candidate.id, candidate.instance_id
                     ),
+                    resource_snapshot=uow.worker_resource_snapshots.latest_for_worker(
+                        candidate.id, candidate.instance_id
+                    ),
                 )
                 for candidate in uow.workers.list()
             ]
-            decision = self._policy.decide(job, snapshots)
+            model = uow.model_definitions.get(job.model_id)
+            decision = self._policy.decide(
+                job,
+                snapshots,
+                expected_memory_bytes=model.expected_memory_bytes if model is not None else None,
+            )
             if decision.selected_worker_id != worker.id:
                 # The caller did not win this placement. Keep the explanation so an
                 # operator can see whether the job is waiting or another worker won.
@@ -370,6 +390,40 @@ class WorkerService:
         with self._uow_factory() as uow:
             self._current_worker(uow.workers.get(worker_id), instance_id)
             return uow.benchmark_summaries.list_for_worker(worker_id, instance_id, limit)
+
+    def record_resource_snapshot(
+        self,
+        worker_id: str,
+        instance_id: str,
+        command: RecordResourceSnapshotCommand,
+    ) -> WorkerResourceSnapshot:
+        """Store one measurement only after verifying the reporting process is current."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            snapshot = WorkerResourceSnapshot(
+                id=str(uuid4()),
+                worker_id=worker_id,
+                worker_instance_id=instance_id,
+                host_cpu_percent=command.host_cpu_percent,
+                host_total_memory_bytes=command.host_total_memory_bytes,
+                host_available_memory_bytes=command.host_available_memory_bytes,
+                process_cpu_percent=command.process_cpu_percent,
+                process_memory_bytes=command.process_memory_bytes,
+                observed_at=utc_now(),
+            )
+            uow.worker_resource_snapshots.add(snapshot)
+            uow.commit()
+            return snapshot
+
+    def resource_snapshots(
+        self, worker_id: str, instance_id: str, limit: int
+    ) -> list[WorkerResourceSnapshot]:
+        """Return newest-first measurements for the current worker process."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            return uow.worker_resource_snapshots.list_for_worker(worker_id, instance_id, limit)
 
     def decisions_for_job(self, job_id: str) -> list[RecordedSchedulingDecision]:
         """Return stored scheduling explanations after confirming the job exists."""

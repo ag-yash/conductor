@@ -106,10 +106,16 @@ def build_parser() -> argparse.ArgumentParser:
         ("drain", "Stop a worker from receiving new jobs."),
         ("next-lease", "Ask for the next eligible job lease."),
         ("residencies", "List model residency snapshots."),
+        ("resource-snapshots", "List saved host and process resource measurements."),
         ("evict-idle", "Unload idle resident models."),
     ):
         action_parser = worker_actions.add_parser(action, help=help_text)
         _add_worker_identity_arguments(action_parser)
+    resource_report = worker_actions.add_parser(
+        "report-resources", help="Record one worker resource measurement from JSON."
+    )
+    _add_worker_identity_arguments(resource_report)
+    _add_payload_file_argument(resource_report)
     for action, help_text in (
         ("start", "Mark a leased attempt as running."),
         ("complete", "Mark a running attempt complete without runtime execution."),
@@ -200,6 +206,15 @@ def dispatch(args: argparse.Namespace, client: ApiClient) -> Any:
             return client.request("POST", f"{worker_path}/{endpoint}", headers=headers)
         if args.action == "residencies":
             return client.request("GET", f"{worker_path}/residencies", headers=headers)
+        if args.action == "resource-snapshots":
+            return client.request("GET", f"{worker_path}/resource-snapshots", headers=headers)
+        if args.action == "report-resources":
+            return client.request(
+                "POST",
+                f"{worker_path}/resource-snapshots",
+                payload=_read_payload(args.file),
+                headers=headers,
+            )
         endpoint = {"start": "start", "complete": "complete", "execute": "execute"}[args.action]
         return client.request(
             "POST", f"{worker_path}/attempts/{args.attempt_id}/{endpoint}", headers=headers

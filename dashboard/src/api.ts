@@ -4,6 +4,7 @@ import type {
   JobPage,
   Model,
   Residency,
+  ResourceSnapshot,
   SchedulingDecision,
   Worker,
 } from "./types";
@@ -49,6 +50,11 @@ export const api = {
   benchmarks: (worker: Worker) =>
     getJson<Benchmark[]>(
       `/workers/${encodeURIComponent(worker.id)}/benchmarks?limit=5`,
+      { "Worker-Instance-ID": worker.instance_id },
+    ),
+  resourceSnapshots: (worker: Worker) =>
+    getJson<ResourceSnapshot[]>(
+      `/workers/${encodeURIComponent(worker.id)}/resource-snapshots?limit=5`,
       { "Worker-Instance-ID": worker.instance_id },
     ),
 };

@@ -6,3 +6,7 @@ model or starting Ollama.
 
 They are examples, not hidden configuration. Read them before using them and
 change the identifiers if you want to keep multiple demo runs in one database.
+
+`worker-resource-snapshot.json` is an example report for the current worker
+process. The numbers are illustrative; replace them with measurements from your
+own machine before using it to explain a real resource decision.

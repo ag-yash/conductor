@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from conductor.domain.job import Job
+from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
+
+DEFAULT_MEMORY_SAFETY_RESERVE_BYTES = 512 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,6 +16,7 @@ class WorkerSnapshot:
 
     worker: Worker
     active_slots: int
+    resource_snapshot: WorkerResourceSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +28,8 @@ class CandidateExplanation:
     reason: str
     active_slots: int
     max_parallel_jobs: int
+    available_memory_bytes: int | None
+    required_memory_bytes: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,14 +57,28 @@ class RecordedSchedulingDecision:
 class PlacementPolicy:
     """Prefer the least-busy eligible worker, then break ties by worker ID."""
 
-    def decide(self, job: Job, snapshots: list[WorkerSnapshot]) -> PlacementDecision:
+    def __init__(
+        self, memory_safety_reserve_bytes: int = DEFAULT_MEMORY_SAFETY_RESERVE_BYTES
+    ) -> None:
+        if memory_safety_reserve_bytes < 0:
+            raise ValueError("memory_safety_reserve_bytes cannot be negative")
+        self._memory_safety_reserve_bytes = memory_safety_reserve_bytes
+
+    def decide(
+        self,
+        job: Job,
+        snapshots: list[WorkerSnapshot],
+        *,
+        expected_memory_bytes: int | None = None,
+    ) -> PlacementDecision:
         explanations: list[CandidateExplanation] = []
         eligible: list[WorkerSnapshot] = []
 
         # Sort first so that identical inputs always produce identical explanations.
         for snapshot in sorted(snapshots, key=lambda item: item.worker.id):
             worker = snapshot.worker
-            reason = self._ineligibility_reason(job, snapshot)
+            reason = self._ineligibility_reason(job, snapshot, expected_memory_bytes)
+            resource = snapshot.resource_snapshot
             explanations.append(
                 CandidateExplanation(
                     worker_id=worker.id,
@@ -66,6 +86,10 @@ class PlacementPolicy:
                     reason=reason or "eligible",
                     active_slots=snapshot.active_slots,
                     max_parallel_jobs=worker.max_parallel_jobs,
+                    available_memory_bytes=(
+                        resource.host_available_memory_bytes if resource is not None else None
+                    ),
+                    required_memory_bytes=expected_memory_bytes,
                 )
             )
             if reason is None:
@@ -93,8 +117,12 @@ class PlacementPolicy:
             candidates=tuple(explanations),
         )
 
-    @staticmethod
-    def _ineligibility_reason(job: Job, snapshot: WorkerSnapshot) -> str | None:
+    def _ineligibility_reason(
+        self,
+        job: Job,
+        snapshot: WorkerSnapshot,
+        expected_memory_bytes: int | None,
+    ) -> str | None:
         worker = snapshot.worker
         if worker.status is not WorkerStatus.READY:
             return "worker_not_ready"
@@ -103,4 +131,14 @@ class PlacementPolicy:
         if snapshot.active_slots >= worker.max_parallel_jobs:
             # A full worker is healthy; it simply cannot accept one more lease now.
             return "no_free_slots"
+        resource = snapshot.resource_snapshot
+        # The reserve protects the operating system and unrelated local tools.
+        # A model must fit in *headroom*, not merely in currently free memory.
+        if (
+            resource is not None
+            and expected_memory_bytes is not None
+            and resource.safe_memory_headroom_bytes(self._memory_safety_reserve_bytes)
+            < expected_memory_bytes
+        ):
+            return "insufficient_memory_headroom"
         return None

@@ -72,9 +72,10 @@ the available memory and the required model memory, so the dashboard can explain
 the result later.
 
 This first rollout does not reject workers that have not reported telemetry yet;
-that preserves compatibility while the standalone worker reporter is still
-planned. CPU is collected for visibility but does not yet change worker ranking.
-See [`resource-telemetry.md`](resource-telemetry.md) for a runnable example.
+that preserves compatibility with manually registered workers. The standalone
+worker now reports telemetry automatically, but CPU is still collected for
+visibility rather than worker ranking. See
+[`resource-telemetry.md`](resource-telemetry.md) for a runnable example.
 
 ## Why stable tie-breaking matters
 

@@ -15,14 +15,15 @@ If this is your first time reading the project:
 7. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
 8. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
 9. [`resource-telemetry.md`](resource-telemetry.md) — understand CPU/RAM snapshots and safe memory headroom.
-10. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
-11. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
-12. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
-13. [`state-machines.md`](state-machines.md) — understand legal status changes.
-14. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-15. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-16. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-17. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+10. [`standalone-worker.md`](standalone-worker.md) — run the real worker process and understand its current boundary.
+11. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
+12. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
+13. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
+14. [`state-machines.md`](state-machines.md) — understand legal status changes.
+15. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+16. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+17. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+18. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

@@ -20,6 +20,7 @@ dependencies = [
   "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
   "pydantic-settings>=2.7,<3",
+  "psutil>=6,<8",
   "sqlmodel>=0.0.24,<1",
   "uvicorn>=0.34,<1",
 ]
@@ -27,6 +28,7 @@ dependencies = [
 [project.scripts]
 conductor-api = "conductor.main:run"
 conductor = "conductor.cli.main:main"
+conductor-worker = "conductor.workers.runner:main"
 
 [project.optional-dependencies]
 dev = [
@@ -37,6 +39,7 @@ dev = [
   "pytest-cov>=6,<7",
   "httpx2>=2.7,<3",
   "ruff>=0.8,<1",
+  "types-psutil>=7,<8",
 ]
 
 [tool.hatch.build.targets.wheel]

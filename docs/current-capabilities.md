@@ -24,9 +24,9 @@ Submit a durable job
         ↓
 Worker leases and starts that job
         ↓
-Worker invokes the fixture or Ollama adapter
+Standalone worker claims and starts that job
         ↓
-Conductor stores the result, model residency, and worker resource snapshots
+The current control-plane runtime executes it and stores the result, model residency, and worker resource snapshots
         ↓
 Inspect residency, benchmark the model, or evict it when idle
 ```
@@ -48,7 +48,7 @@ and a model you have already pulled.
 | --- | --- | --- |
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
 | Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence | Running-job cancellation, retries, lease-expiry recovery |
-| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, and durable CPU/RAM snapshots | Separate long-running worker executable and automatic failure detection |
+| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, and the `conductor-worker` long-running protocol process | Automatic failure detection and runtime execution inside the separate worker process |
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
@@ -99,8 +99,9 @@ design decisions that future code must satisfy.
 
 ## Current limitations worth remembering
 
-- The control plane and worker-facing execution API currently run in the same
-  FastAPI process for a simple local demonstration.
+- `conductor-worker` is a separate OS process for registration, polling,
+  heartbeats, graceful drain, and CPU/RAM reporting. Its current `/execute`
+  request still invokes the runtime inside the FastAPI control-plane process.
 - Runtime invocation holds a service transaction open; that is acceptable for
   the current local scope but will need redesign before long-running production
   inference.

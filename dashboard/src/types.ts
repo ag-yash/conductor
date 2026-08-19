@@ -42,6 +42,8 @@ export type SchedulingCandidate = {
   reason: string;
   active_slots: number;
   max_parallel_jobs: number;
+  available_memory_bytes: number | null;
+  required_memory_bytes: number | null;
 };
 
 export type SchedulingDecision = {
@@ -76,4 +78,16 @@ export type Benchmark = {
   max_wall_time_ms: number;
   mean_runtime_metrics: Record<string, number>;
   created_at: string;
+};
+
+export type ResourceSnapshot = {
+  id: string;
+  worker_id: string;
+  worker_instance_id: string;
+  host_cpu_percent: number;
+  host_total_memory_bytes: number;
+  host_available_memory_bytes: number;
+  process_cpu_percent: number;
+  process_memory_bytes: number;
+  observed_at: string;
 };

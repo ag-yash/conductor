@@ -26,7 +26,9 @@ def _submit(client: TestClient, key: str = "worker-demo") -> dict[str, object]:
     return cast(dict[str, object], response.json())
 
 
-def _register_fixture_model(client: TestClient, *, idle_timeout_seconds: int = 300) -> None:
+def _register_fixture_model(
+    client: TestClient, *, idle_timeout_seconds: int = 300, expected_memory_bytes: int = 1
+) -> None:
     response = client.post(
         "/api/v1/models",
         json={
@@ -35,7 +37,7 @@ def _register_fixture_model(client: TestClient, *, idle_timeout_seconds: int = 3
             "runtime_kind": "fixture",
             "artifact": "fixture://qwen-demo",
             "supported_tasks": ["text.generate"],
-            "expected_memory_bytes": 1,
+            "expected_memory_bytes": expected_memory_bytes,
             "idle_timeout_seconds": idle_timeout_seconds,
         },
     )
@@ -83,6 +85,83 @@ def test_operator_can_list_current_registered_workers(client: TestClient) -> Non
 
     assert response.status_code == 200
     assert [worker["id"] for worker in response.json()] == ["demo-worker", "second-worker"]
+
+
+def test_worker_records_resource_snapshots_for_its_current_process(client: TestClient) -> None:
+    _register(client)
+    measurement = {
+        "host_cpu_percent": 31.5,
+        "host_total_memory_bytes": 8 * 1024**3,
+        "host_available_memory_bytes": 5 * 1024**3,
+        "process_cpu_percent": 12.0,
+        "process_memory_bytes": 300 * 1024**2,
+    }
+
+    recorded = client.post(
+        "/api/v1/workers/demo-worker/resource-snapshots",
+        headers=_headers(),
+        json=measurement,
+    )
+
+    assert recorded.status_code == 200
+    assert (
+        recorded.json()["host_available_memory_bytes"] == measurement["host_available_memory_bytes"]
+    )
+    assert recorded.json()["observed_at"]
+
+    history = client.get(
+        "/api/v1/workers/demo-worker/resource-snapshots",
+        headers=_headers(),
+    )
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    assert history.json()[0]["process_memory_bytes"] == measurement["process_memory_bytes"]
+
+
+def test_resource_snapshot_rejects_impossible_available_memory(client: TestClient) -> None:
+    _register(client)
+
+    response = client.post(
+        "/api/v1/workers/demo-worker/resource-snapshots",
+        headers=_headers(),
+        json={
+            "host_cpu_percent": 20,
+            "host_total_memory_bytes": 1024,
+            "host_available_memory_bytes": 2048,
+            "process_cpu_percent": 5,
+            "process_memory_bytes": 512,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_scheduler_defers_a_model_that_would_break_memory_headroom(client: TestClient) -> None:
+    # The policy keeps 512 MiB aside. This worker has 1 GiB available, so a
+    # 768 MiB model cannot safely start even though the raw free memory looks large.
+    _register_fixture_model(client, expected_memory_bytes=768 * 1024**2)
+    _register(client)
+    client.post(
+        "/api/v1/workers/demo-worker/resource-snapshots",
+        headers=_headers(),
+        json={
+            "host_cpu_percent": 20,
+            "host_total_memory_bytes": 8 * 1024**3,
+            "host_available_memory_bytes": 1024**3,
+            "process_cpu_percent": 5,
+            "process_memory_bytes": 256 * 1024**2,
+        },
+    )
+    job = _submit(client, key="memory-headroom")
+
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+
+    assert lease.status_code == 204
+    decisions = client.get(f"/api/v1/jobs/{job['id']}/scheduling-decisions")
+    candidate = decisions.json()[0]["candidates"][0]
+    assert candidate["reason"] == "insufficient_memory_headroom"
+    assert candidate["available_memory_bytes"] == 1024**3
+    assert candidate["required_memory_bytes"] == 768 * 1024**2
 
 
 def test_worker_polls_starts_and_completes_a_deterministic_job(client: TestClient) -> None:

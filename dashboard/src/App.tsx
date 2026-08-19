@@ -8,6 +8,7 @@ import type {
   Job,
   Model,
   Residency,
+  ResourceSnapshot,
   SchedulingDecision,
   Worker,
 } from "./types";
@@ -50,6 +51,7 @@ export function App() {
   const [decisions, setDecisions] = useState<SchedulingDecision[] | null>(null);
   const [residencies, setResidencies] = useState<Residency[] | null>(null);
   const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
+  const [resourceSnapshots, setResourceSnapshots] = useState<ResourceSnapshot[] | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -100,12 +102,18 @@ export function App() {
     let isCurrent = true;
     setResidencies(null);
     setBenchmarks(null);
+    setResourceSnapshots(null);
     setDetailError(null);
-    void Promise.all([api.residencies(selectedWorker), api.benchmarks(selectedWorker)])
-      .then(([nextResidencies, nextBenchmarks]) => {
+    void Promise.all([
+      api.residencies(selectedWorker),
+      api.benchmarks(selectedWorker),
+      api.resourceSnapshots(selectedWorker),
+    ])
+      .then(([nextResidencies, nextBenchmarks, nextResourceSnapshots]) => {
         if (!isCurrent) return;
         setResidencies(nextResidencies);
         setBenchmarks(nextBenchmarks);
+        setResourceSnapshots(nextResourceSnapshots);
       })
       .catch((reason: unknown) => {
         if (isCurrent) setDetailError(readableError(reason));
@@ -210,7 +218,7 @@ export function App() {
 
       {selectedJob || selectedWorker ? <section className="detail-grid" aria-label="Selected investigation details">
         {selectedJob ? <JobDetail job={selectedJob} decisions={decisions} error={detailError} onClose={() => setSelectedJob(null)} /> : null}
-        {selectedWorker ? <WorkerDetail worker={selectedWorker} residencies={residencies} benchmarks={benchmarks} error={detailError} onClose={() => setSelectedWorker(null)} /> : null}
+        {selectedWorker ? <WorkerDetail worker={selectedWorker} residencies={residencies} benchmarks={benchmarks} resourceSnapshots={resourceSnapshots} error={detailError} onClose={() => setSelectedWorker(null)} /> : null}
       </section> : null}
     </main>
   );
@@ -225,14 +233,28 @@ function JobDetail({ job, decisions, error, onClose }: { job: Job; decisions: Sc
   </article>;
 }
 
-function WorkerDetail({ worker, residencies, benchmarks, error, onClose }: { worker: Worker; residencies: Residency[] | null; benchmarks: Benchmark[] | null; error: string | null; onClose: () => void }) {
+function WorkerDetail({ worker, residencies, benchmarks, resourceSnapshots, error, onClose }: { worker: Worker; residencies: Residency[] | null; benchmarks: Benchmark[] | null; resourceSnapshots: ResourceSnapshot[] | null; error: string | null; onClose: () => void }) {
   return <article className="panel detail-panel"><DetailHeading title={`Worker: ${worker.id}`} onClose={onClose} />
     <p className="secondary">Current process instance: {worker.instance_id}. A restart changes this ID, so old process messages cannot update new worker state.</p>
     {error ? <p className="detail-error">{error}</p> : <>
+      <DetailBlock title="Latest resource snapshot"><p className="hint">A worker reports these measurements about its own machine and process. They are the raw facts that future memory-aware scheduling and charts use.</p><ResourceSnapshotDetail snapshots={resourceSnapshots} /></DetailBlock>
       <DetailBlock title="Model residency"><p className="hint">A residency means a specific worker process has loaded a model. It is different from merely registering a model definition.</p>{residencies === null ? <p className="empty">Loading residency snapshots…</p> : residencies.length === 0 ? <EmptyState message="No model is currently recorded as resident on this worker." /> : residencies.map((residency) => <div className="residency" key={residency.id}><div><strong>{residency.model_id}</strong><span className="secondary">Last used {formatTime(residency.last_used_at)} · {residency.active_execution_count} active executions</span></div><Badge value={residency.status} /></div>)}</DetailBlock>
       <DetailBlock title="Recent benchmarks"><p className="hint">These are warm-runtime execution measurements, not model-quality scores.</p>{benchmarks === null ? <p className="empty">Loading benchmark history…</p> : benchmarks.length === 0 ? <EmptyState message="No benchmark has been recorded for this worker process." /> : <><BenchmarkInsights benchmarks={benchmarks} />{benchmarks.map((benchmark) => <div className="benchmark" key={benchmark.id}><div><strong>{benchmark.model_id} · {benchmark.task}</strong><span className="secondary">{benchmark.measurement_iterations} measured runs after {benchmark.warmup_iterations} warmups</span></div><strong>{benchmark.mean_wall_time_ms.toFixed(3)} ms mean</strong></div>)}</>}</DetailBlock>
     </>}
   </article>;
+}
+
+function ResourceSnapshotDetail({ snapshots }: { snapshots: ResourceSnapshot[] | null }) {
+  if (snapshots === null) return <p className="empty">Loading resource measurements…</p>;
+  const latest = snapshots[0];
+  if (latest === undefined) return <EmptyState message="This worker has not reported CPU or memory measurements yet." />;
+  return <div className="resource-summary">
+    <InsightMetric label="Host CPU" value={`${latest.host_cpu_percent.toFixed(1)}%`} />
+    <InsightMetric label="Host memory available" value={`${formatBytes(latest.host_available_memory_bytes)} / ${formatBytes(latest.host_total_memory_bytes)}`} />
+    <InsightMetric label="Worker process RAM" value={formatBytes(latest.process_memory_bytes)} />
+    <InsightMetric label="Worker process CPU" value={`${latest.process_cpu_percent.toFixed(1)}%`} />
+    <span className="secondary resource-observed">Reported {formatTime(latest.observed_at)}</span>
+  </div>;
 }
 
 function BenchmarkInsights({ benchmarks }: { benchmarks: Benchmark[] }) {
@@ -279,3 +301,10 @@ function EmptyState({ message }: { message: string }) { return <p className="emp
 function readableError(reason: unknown): string { return reason instanceof Error ? reason.message : "Could not load this detail."; }
 function formatMilliseconds(value: number): string { return `${value.toFixed(3)} ms`; }
 function formatMetricValue(value: number): string { return Number.isInteger(value) ? String(value) : value.toFixed(3); }
+function formatBytes(value: number): string {
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let scaled = value;
+  let unit = 0;
+  while (scaled >= 1024 && unit < units.length - 1) { scaled /= 1024; unit += 1; }
+  return `${scaled.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}

@@ -112,6 +112,46 @@ def test_cli_runs_benchmark_with_worker_instance_header(tmp_path: Path) -> None:
     assert client.calls[0]["headers"] == {"Worker-Instance-ID": "process-a"}
 
 
+def test_cli_reports_worker_resource_snapshot_from_json_file(tmp_path: Path) -> None:
+    payload_file = tmp_path / "resources.json"
+    payload_file.write_text(
+        '{"host_cpu_percent": 20, "host_total_memory_bytes": 8192, '
+        '"host_available_memory_bytes": 4096, "process_cpu_percent": 4, '
+        '"process_memory_bytes": 512}',
+        encoding="utf-8",
+    )
+    client = FakeApiClient(response={"id": "snapshot-1"})
+
+    code, _, stderr = _run(
+        client,
+        "workers",
+        "report-resources",
+        "--worker-id",
+        "demo-worker",
+        "--instance-id",
+        "process-a",
+        "--file",
+        str(payload_file),
+    )
+
+    assert code == 0
+    assert stderr == ""
+    assert client.calls == [
+        {
+            "method": "POST",
+            "path": "workers/demo-worker/resource-snapshots",
+            "payload": {
+                "host_cpu_percent": 20,
+                "host_total_memory_bytes": 8192,
+                "host_available_memory_bytes": 4096,
+                "process_cpu_percent": 4,
+                "process_memory_bytes": 512,
+            },
+            "headers": {"Worker-Instance-ID": "process-a"},
+        }
+    ]
+
+
 def test_cli_explains_api_errors_without_traceback() -> None:
     client = FakeApiClient(error=CliError("Cannot reach Conductor."))
 

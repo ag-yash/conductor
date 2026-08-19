@@ -89,6 +89,10 @@ Now inspect what happened:
 ```bash
 conductor jobs list
 conductor workers residencies --worker-id demo-worker --instance-id process-a
+conductor workers report-resources \
+  --worker-id demo-worker \
+  --instance-id process-a \
+  --file examples/worker-resource-snapshot.json
 ```
 
 Run a warm-runtime benchmark using the same model:
@@ -109,7 +113,7 @@ conductor benchmarks list --worker-id demo-worker --instance-id process-a
 | `health` | `conductor health`, `conductor health live` | API liveness and readiness |
 | `models` | `list`, `get MODEL_ID`, `register --file FILE` | Trusted model definitions |
 | `jobs` | `list`, `submit`, `get`, `cancel`, `decisions` | Durable jobs and scheduling history |
-| `workers` | `register`, `heartbeat`, `drain`, `next-lease`, `start`, `execute`, `residencies`, `evict-idle` | One registered worker process |
+| `workers` | `register`, `heartbeat`, `drain`, `next-lease`, `start`, `execute`, `residencies`, `report-resources`, `resource-snapshots`, `evict-idle` | One registered worker process |
 | `benchmarks` | `run`, `list` | Persisted warm-runtime timing summaries |
 
 Use `--help` at every level to discover the exact arguments:

@@ -4,15 +4,17 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from conductor.api.jobs import JobResponse
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.model import ModelResidency, ResidencyStatus
+from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.services.workers import (
     BenchmarkCommand,
+    RecordResourceSnapshotCommand,
     RegisterWorkerCommand,
     WorkerService,
     WorkLease,
@@ -175,6 +177,52 @@ class BenchmarkSummaryResponse(BaseModel):
         )
 
 
+class ResourceSnapshotRequest(BaseModel):
+    """One worker-reported host and worker-process resource observation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    host_cpu_percent: float = Field(ge=0, le=100)
+    host_total_memory_bytes: int = Field(gt=0)
+    host_available_memory_bytes: int = Field(ge=0)
+    process_cpu_percent: float = Field(ge=0)
+    process_memory_bytes: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def available_memory_fits_within_total(self) -> "ResourceSnapshotRequest":
+        if self.host_available_memory_bytes > self.host_total_memory_bytes:
+            raise ValueError("host_available_memory_bytes cannot exceed host_total_memory_bytes")
+        return self
+
+
+class ResourceSnapshotResponse(BaseModel):
+    """Durable measurement returned exactly as Conductor accepted it."""
+
+    id: str
+    worker_id: str
+    worker_instance_id: str
+    host_cpu_percent: float
+    host_total_memory_bytes: int
+    host_available_memory_bytes: int
+    process_cpu_percent: float
+    process_memory_bytes: int
+    observed_at: datetime
+
+    @classmethod
+    def from_domain(cls, snapshot: WorkerResourceSnapshot) -> "ResourceSnapshotResponse":
+        return cls(
+            id=snapshot.id,
+            worker_id=snapshot.worker_id,
+            worker_instance_id=snapshot.worker_instance_id,
+            host_cpu_percent=snapshot.host_cpu_percent,
+            host_total_memory_bytes=snapshot.host_total_memory_bytes,
+            host_available_memory_bytes=snapshot.host_available_memory_bytes,
+            process_cpu_percent=snapshot.process_cpu_percent,
+            process_memory_bytes=snapshot.process_memory_bytes,
+            observed_at=snapshot.observed_at,
+        )
+
+
 def _service(request: Request) -> WorkerService:
     service: WorkerService = request.app.state.worker_service
     return service
@@ -328,4 +376,41 @@ def list_benchmarks(
     return [
         BenchmarkSummaryResponse.from_domain(item)
         for item in _service(request).benchmarks(worker_id, worker_instance_id, limit)
+    ]
+
+
+@router.post("/{worker_id}/resource-snapshots", response_model=ResourceSnapshotResponse)
+def record_resource_snapshot(
+    worker_id: str,
+    payload: ResourceSnapshotRequest,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> ResourceSnapshotResponse:
+    """Accept one measurement from the current worker process only."""
+
+    return ResourceSnapshotResponse.from_domain(
+        _service(request).record_resource_snapshot(
+            worker_id,
+            worker_instance_id,
+            RecordResourceSnapshotCommand(
+                host_cpu_percent=payload.host_cpu_percent,
+                host_total_memory_bytes=payload.host_total_memory_bytes,
+                host_available_memory_bytes=payload.host_available_memory_bytes,
+                process_cpu_percent=payload.process_cpu_percent,
+                process_memory_bytes=payload.process_memory_bytes,
+            ),
+        )
+    )
+
+
+@router.get("/{worker_id}/resource-snapshots", response_model=list[ResourceSnapshotResponse])
+def list_resource_snapshots(
+    worker_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[ResourceSnapshotResponse]:
+    return [
+        ResourceSnapshotResponse.from_domain(item)
+        for item in _service(request).resource_snapshots(worker_id, worker_instance_id, limit)
     ]

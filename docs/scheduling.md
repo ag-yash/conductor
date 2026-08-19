@@ -1,10 +1,11 @@
 # How Conductor chooses a worker
 
-M4 makes every choice explainable. When a worker asks for work, Conductor looks at all registered workers and checks three simple rules:
+Conductor makes every choice explainable. When a worker asks for work, it checks these rules:
 
 1. Is the worker ready (not draining)?
 2. Can it do this task type?
 3. Does it have a free execution slot?
+4. When it has a resource report, does the model fit after Conductor's 512 MiB memory reserve?
 
 Among eligible workers, Conductor picks the least busy one. If two workers are equally busy, it picks the alphabetically first worker ID. This tie-break makes demos and tests predictable.
 
@@ -52,7 +53,28 @@ worker-c: 2 / 4 = 0.50
 
 The smallest eligible ratio wins. When ratios are equal, worker ID breaks the tie.
 
-This simple calculation is explainable and deterministic. It does not yet include memory, CPU, model residency, job priority, or model load time. Those factors should be added only with reliable measurements and tests.
+This simple calculation is explainable and deterministic. It does not yet use CPU,
+model residency, job priority, or model load time. Those factors should be added
+only with reliable measurements and tests.
+
+## Memory headroom when telemetry exists
+
+Workers can now report actual host CPU and memory measurements. For a worker
+with a current report, the scheduler treats memory as a hard safety constraint:
+
+```text
+safe memory headroom = host available memory - 512 MiB reserve
+```
+
+If a model's `expected_memory_bytes` is larger than that headroom, the worker is
+rejected with `insufficient_memory_headroom`. The decision record includes both
+the available memory and the required model memory, so the dashboard can explain
+the result later.
+
+This first rollout does not reject workers that have not reported telemetry yet;
+that preserves compatibility while the standalone worker reporter is still
+planned. CPU is collected for visibility but does not yet change worker ranking.
+See [`resource-telemetry.md`](resource-telemetry.md) for a runnable example.
 
 ## Why stable tie-breaking matters
 

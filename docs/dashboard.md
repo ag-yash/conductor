@@ -110,6 +110,18 @@ definition says Conductor is allowed to use a model. A residency says one
 specific worker process has loaded it. The first is configuration; the second
 is operational state.
 
+### Latest resource snapshot
+
+The same worker detail also shows the latest reported host CPU, host memory, and
+worker-process CPU/RAM values. These are durable worker-reported measurements,
+not guesses made by the browser. When a model cannot safely fit, the saved job
+scheduling rationale shows `insufficient_memory_headroom`.
+
+The current card shows only the newest measurement. Historical resource charts
+will come after periodic worker collection exists. Read
+[`resource-telemetry.md`](resource-telemetry.md) for the meaning and limits of
+each number.
+
 ## Exploring a larger queue
 
 The overview shows only recent jobs so it stays small and quick. **Queue

@@ -26,7 +26,7 @@ Worker leases and starts that job
         ↓
 Worker invokes the fixture or Ollama adapter
         ↓
-Conductor stores the result and model-residency snapshot
+Conductor stores the result, model residency, and worker resource snapshots
         ↓
 Inspect residency, benchmark the model, or evict it when idle
 ```
@@ -48,12 +48,12 @@ and a model you have already pulled.
 | --- | --- | --- |
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
 | Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence | Running-job cancellation, retries, lease-expiry recovery |
-| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution-slot scheduling | Separate long-running worker executable and automatic failure detection |
-| Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations | CPU, memory, resident-model, priority, and queue-depth scoring |
+| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, and durable CPU/RAM snapshots | Separate long-running worker executable and automatic failure detection |
+| Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
-| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions and host-resource sampling |
-| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, and benchmark timing insight | Dashboard write actions, host-resource charts, and live updates |
+| Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions |
+| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, benchmark timing insight, and latest CPU/RAM snapshot | Dashboard write actions, historical host-resource charts, and live updates |
 | Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
 
 ## What “implemented” means here
@@ -92,6 +92,7 @@ design decisions that future code must satisfy.
 | How does a runtime stay replaceable? | `runtime/base.py` → `runtime/fixture.py` or `runtime/ollama.py` |
 | How is a model kept warm? | `runtime/manager.py` |
 | How is a benchmark stored? | `services/workers.py` → `domain/benchmark.py` → `storage/repositories.py` |
+| How does memory affect placement? | `domain/resource.py` → `services/workers.py` → `scheduler/policy.py` |
 | How do tests prove the HTTP flow? | `tests/test_workers_api.py` |
 | How does the dashboard avoid becoming a second control plane? | `dashboard/src/api.ts` → `api/workers.py` → `services/workers.py` |
 | Where does the dashboard get historical scheduling evidence? | `dashboard/src/App.tsx` → `api/jobs.py` → `services/workers.py` |

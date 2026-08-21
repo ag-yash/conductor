@@ -71,6 +71,7 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 - Dashboard benchmark timing insight using persisted runtime summaries. **Complete.**
 - Worker-reported CPU/RAM snapshots, durable history, memory-headroom deferral, and latest dashboard view. **Complete.**
 - Standalone `conductor-worker` process for automatic registration, polling, heartbeats, resource reports, and graceful drain. **Complete.**
+- Worker-owned runtime invocation with durable result/failure and residency reporting. **Complete.**
 - Historical host-resource charts.
 - Live updates using a minimal justified transport.
 

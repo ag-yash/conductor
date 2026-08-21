@@ -9,12 +9,16 @@ import sys
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 from uuid import uuid4
 
 import psutil
 
 from conductor.cli.client import CliError, HttpApiClient
+from conductor.domain.model import ModelDefinition, RuntimeKind
+from conductor.runtime.base import RuntimeAdapterError
+from conductor.runtime.manager import RuntimeManager
 
 DEFAULT_API_URL = "http://127.0.0.1:8080/api/v1"
 
@@ -95,6 +99,7 @@ class WorkerRunner:
         config: WorkerProcessConfig,
         client: WorkerApiClient,
         sampler: ResourceSampler,
+        runtime_manager: RuntimeManager | None = None,
         *,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
@@ -102,6 +107,9 @@ class WorkerRunner:
         self._config = config
         self._client = client
         self._sampler = sampler
+        # This cache belongs to this OS process. When the worker exits, its
+        # models leave memory too; the database only retains an observation.
+        self._runtime_manager = runtime_manager or RuntimeManager.default()
         self._clock = clock
         self._sleep = sleep
         self._running = True
@@ -150,6 +158,11 @@ class WorkerRunner:
             )
             self._next_resource_report_at = now + self._config.resource_report_seconds
 
+        # Idle eviction must run in the same OS process that owns loaded model
+        # memory. The API can persist the observation, but it cannot free this
+        # worker's memory from another process.
+        self._evict_idle_models()
+
         lease = self._client.request(
             "POST", f"{self._worker_path}/leases/next", headers=self._headers
         )
@@ -165,11 +178,112 @@ class WorkerRunner:
             raise CliError("Conductor returned a worker lease without an attempt ID.")
         attempt_path = f"{self._worker_path}/attempts/{attempt_id}"
         self._client.request("POST", f"{attempt_path}/start", headers=self._headers)
-        # The current control plane owns the runtime manager. This runner makes
-        # the *worker protocol* and telemetry automatic first; moving adapters
-        # into this process is the next deliberate boundary change.
-        self._client.request("POST", f"{attempt_path}/execute", headers=self._headers)
+        model = self._model_from_lease(lease)
+        try:
+            result = self._runtime_manager.execute(
+                model=model,
+                worker_id=self._config.worker_id,
+                worker_instance_id=self._config.instance_id,
+                task=str(lease["job"]["task"]),
+                input=self._mapping(lease["job"].get("input"), "job input"),
+                parameters=self._mapping(lease["job"].get("parameters"), "job parameters"),
+            )
+        except RuntimeAdapterError as error:
+            self._report_residency(model)
+            self._client.request(
+                "POST",
+                f"{attempt_path}/fail",
+                payload={"error_message": str(error)},
+                headers=self._headers,
+            )
+            return True
+
+        self._report_residency(model)
+        self._client.request(
+            "POST",
+            f"{attempt_path}/complete",
+            payload={"result": dict(result.output)},
+            headers=self._headers,
+        )
         return True
+
+    def _report_residency(self, model: ModelDefinition) -> None:
+        """Send the worker-local loaded-model state to the durable API view."""
+
+        residency = self._runtime_manager.residency(
+            worker_id=self._config.worker_id,
+            worker_instance_id=self._config.instance_id,
+            model_id=model.id,
+        )
+        if residency is None:
+            return
+        self._client.request(
+            "POST",
+            f"{self._worker_path}/residencies",
+            payload={
+                "id": residency.id,
+                "model_id": residency.model_id,
+                "model_revision": residency.model_revision,
+                "status": residency.status.value,
+                "active_execution_count": residency.active_execution_count,
+                "measured_memory_bytes": residency.measured_memory_bytes,
+                "loaded_at": self._timestamp(residency.loaded_at),
+                "last_used_at": self._timestamp(residency.last_used_at),
+                "failure_message": residency.failure_message,
+                "created_at": self._timestamp(residency.created_at),
+                "updated_at": self._timestamp(residency.updated_at),
+                "version": residency.version,
+            },
+            headers=self._headers,
+        )
+
+    def _evict_idle_models(self) -> None:
+        """Unload this process's idle models and remove their durable snapshots."""
+
+        evicted = self._runtime_manager.evict_idle(
+            worker_id=self._config.worker_id,
+            worker_instance_id=self._config.instance_id,
+        )
+        for residency in evicted:
+            self._client.request(
+                "DELETE",
+                f"{self._worker_path}/residencies/{residency.model_id}",
+                headers=self._headers,
+            )
+
+    @staticmethod
+    def _timestamp(value: datetime | None) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    @staticmethod
+    def _mapping(value: Any, description: str) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise CliError(f"Conductor returned malformed {description} in a worker lease.")
+        return value
+
+    def _model_from_lease(self, lease: dict[str, Any]) -> ModelDefinition:
+        """Rebuild trusted model configuration sent with the leased job."""
+
+        raw_model = lease.get("model")
+        if not isinstance(raw_model, dict):
+            raise CliError("Conductor returned a worker lease without model configuration.")
+        try:
+            return ModelDefinition(
+                id=str(raw_model["id"]),
+                display_name=str(raw_model["display_name"]),
+                runtime_kind=RuntimeKind(str(raw_model["runtime_kind"])),
+                artifact=str(raw_model["artifact"]),
+                supported_tasks=frozenset(str(item) for item in raw_model["supported_tasks"]),
+                expected_memory_bytes=int(raw_model["expected_memory_bytes"]),
+                idle_timeout_seconds=int(raw_model["idle_timeout_seconds"]),
+                enabled=bool(raw_model["enabled"]),
+                revision=int(raw_model["revision"]),
+                created_at=datetime.fromisoformat(str(raw_model["created_at"])),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise CliError(
+                "Conductor returned malformed model configuration in a worker lease."
+            ) from error
 
     def run_forever(self) -> None:
         """Run until a signal requests graceful draining and shutdown."""

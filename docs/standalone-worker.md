@@ -15,8 +15,9 @@ After it starts, one worker process:
 2. sends heartbeats while it is alive;
 3. measures host and process CPU/RAM with `psutil` and reports a snapshot;
 4. polls for one compatible job at a time;
-5. starts and executes a leased job through the existing API; and
-6. enters draining state when you press `Ctrl+C`, so it accepts no more work.
+5. starts a leased job, loads/invokes its local runtime adapter, then reports a result or safe error; and
+6. checks its own loaded models for idle eviction; and
+7. enters draining state when you press `Ctrl+C`, so it accepts no more work.
 
 The default worker is deliberately **single-slot**. It never advertises two
 parallel execution slots while its loop can only run one job at a time.
@@ -46,9 +47,10 @@ conductor jobs submit --file examples/fixture-job.json --idempotency-key standal
 conductor jobs list
 ```
 
-The worker polls, claims the job, and asks the API to execute it. Refresh the
-dashboard or run `conductor jobs list` to see the durable result. The worker
-also creates resource snapshots that appear in the worker detail view.
+The worker polls, claims the job, runs the fixture adapter in its own process,
+then reports the durable result. Refresh the dashboard or run `conductor jobs
+list` to see it. The worker also creates resource and model-residency snapshots
+that appear in the worker detail view.
 
 Press `Ctrl+C` in Terminal 2 to stop. The process first stops polling, then
 sends a final **drain** request. Draining means “do not give me new jobs.”
@@ -83,20 +85,20 @@ reports have a real interval to measure.
 
 ## Important current boundary
 
-This is an honest intermediate step, not a hidden claim of fully remote model
-execution. The standalone process owns the **worker protocol** and telemetry,
-but the current `/execute` API endpoint still calls `RuntimeManager` inside the
-FastAPI control-plane process.
+The standalone process owns the **worker protocol**, telemetry, and the
+`RuntimeManager` that loads and invokes models. The API owns durable state:
+leases, job transitions, results, errors, and the operator-facing residency
+snapshot.
 
 ```text
-standalone worker: register → heartbeat → report resources → lease → start
-                                                               ↓
-control-plane API:                                      /execute → runtime adapter
+standalone worker: register → heartbeat → report resources → lease → start → runtime adapter
+                                                                            ↓
+control-plane API:                                  report residency → complete/fail attempt
 ```
 
-Moving the runtime adapter and loaded model instance into the standalone worker
-is a later phase. That change needs a result-reporting protocol and careful
-failure recovery, so it deserves to be designed rather than implied.
+The next resilience phase will handle a worker that disappears while a model is
+running. That needs lease expiry and retry rules; it is deliberately separate
+from this process-isolation phase.
 
 ## Code path to read
 

@@ -73,16 +73,16 @@ conductor jobs submit \
   --idempotency-key fixture-demo-job-1
 ```
 
-The commands below remain useful for learning and debugging each state change.
+The commands below remain useful for learning the lease and start transitions.
 For ordinary local execution, `conductor-worker` now automates polling,
-heartbeats, and resource reports; see [`standalone-worker.md`](standalone-worker.md).
+heartbeats, resource reports, local runtime execution, and result reporting;
+see [`standalone-worker.md`](standalone-worker.md).
 
 ```bash
 # Copy the attempt ID from this response.
 conductor workers next-lease --worker-id demo-worker --instance-id process-a
 
 conductor workers start --worker-id demo-worker --instance-id process-a ATTEMPT_ID
-conductor workers execute --worker-id demo-worker --instance-id process-a ATTEMPT_ID
 ```
 
 Now inspect what happened:
@@ -114,7 +114,7 @@ conductor benchmarks list --worker-id demo-worker --instance-id process-a
 | `health` | `conductor health`, `conductor health live` | API liveness and readiness |
 | `models` | `list`, `get MODEL_ID`, `register --file FILE` | Trusted model definitions |
 | `jobs` | `list`, `submit`, `get`, `cancel`, `decisions` | Durable jobs and scheduling history |
-| `workers` | `register`, `heartbeat`, `drain`, `next-lease`, `start`, `execute`, `residencies`, `report-resources`, `resource-snapshots`, `evict-idle` | One registered worker process |
+| `workers` | `register`, `heartbeat`, `drain`, `next-lease`, `start`, `complete`, `residencies`, `report-resources`, `resource-snapshots`, `evict-idle` | One registered worker process |
 | `benchmarks` | `run`, `list` | Persisted warm-runtime timing summaries |
 
 Use `--help` at every level to discover the exact arguments:

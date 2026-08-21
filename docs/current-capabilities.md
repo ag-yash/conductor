@@ -26,7 +26,7 @@ Worker leases and starts that job
         ↓
 Standalone worker claims and starts that job
         ↓
-The current control-plane runtime executes it and stores the result, model residency, and worker resource snapshots
+The worker process loads/runs the local model and reports its result, residency, and CPU/RAM snapshots
         ↓
 Inspect residency, benchmark the model, or evict it when idle
 ```
@@ -48,9 +48,9 @@ and a model you have already pulled.
 | --- | --- | --- |
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
 | Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence | Running-job cancellation, retries, lease-expiry recovery |
-| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, and the `conductor-worker` long-running protocol process | Automatic failure detection and runtime execution inside the separate worker process |
+| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, and `conductor-worker` with worker-owned runtime execution | Automatic failure detection and retry recovery |
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, resident-model, priority, and queue-depth scoring |
-| Runtimes | Fixture adapter, Ollama text adapter, on-demand loading, warm reuse, safe idle eviction | ONNX adapter, memory-pressure policy, periodic eviction loop |
+| Runtimes | Fixture adapter, Ollama text adapter, worker-owned on-demand loading, warm reuse, and idle eviction | ONNX adapter and memory-pressure policy |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
 | Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions |
 | User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, benchmark timing insight, and latest CPU/RAM snapshot | Dashboard write actions, historical host-resource charts, and live updates |
@@ -100,8 +100,8 @@ design decisions that future code must satisfy.
 ## Current limitations worth remembering
 
 - `conductor-worker` is a separate OS process for registration, polling,
-  heartbeats, graceful drain, and CPU/RAM reporting. Its current `/execute`
-  request still invokes the runtime inside the FastAPI control-plane process.
+  heartbeats, graceful drain, CPU/RAM reporting, and model runtime execution.
+  It reports a result or safe failure back to the FastAPI control plane.
 - Runtime invocation holds a service transaction open; that is acceptable for
   the current local scope but will need redesign before long-running production
   inference.

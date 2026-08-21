@@ -34,9 +34,10 @@ Scheduler compares remaining headroom with model expected memory
 Place job, or save `insufficient_memory_headroom`
 ```
 
-The reporting call is explicit in this phase. A future standalone worker
-executable will collect and submit reports periodically. Until then, the CLI or
-OpenAPI page is the honest way to send a measured sample for a demo.
+The API and CLI reporting call remains available for inspection and manual
+experiments. The `conductor-worker` executable now collects and submits reports
+periodically during normal local operation. See
+[`standalone-worker.md`](standalone-worker.md) for the runnable process.
 
 ## The measurements
 

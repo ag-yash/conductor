@@ -73,8 +73,9 @@ conductor jobs submit \
   --idempotency-key fixture-demo-job-1
 ```
 
-The current worker flow is deliberately explicit. It makes the state changes
-easy to observe before a future standalone worker process automates polling:
+The commands below remain useful for learning and debugging each state change.
+For ordinary local execution, `conductor-worker` now automates polling,
+heartbeats, and resource reports; see [`standalone-worker.md`](standalone-worker.md).
 
 ```bash
 # Copy the attempt ID from this response.

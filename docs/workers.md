@@ -13,9 +13,9 @@ The worker first registers. It then sends a heartbeat every so often. A heartbea
 
 | Control plane | Worker |
 | --- | --- |
-| Accepts and stores jobs | Performs the actual work |
+| Accepts and stores jobs | Coordinates execution requests today; will own runtime execution later |
 | Chooses an eligible worker | Declares what task types it supports |
-| Protects job state | Loads a model and invokes a runtime |
+| Protects job state | Declares what it can run and reports its local state |
 | Records decisions | Reports start, completion, or failure |
 
 Keeping them separate prevents a slow model call from blocking the API process.
@@ -129,10 +129,19 @@ A draining worker may still report its current attempt. The scheduler simply exc
 M3 began with a predictable success path. That was intentional: it proved the
 worker/control-plane protocol before any real AI integration was added.
 
-Today, the same worker flow can execute either the deterministic fixture runtime
-or a configured local Ollama runtime through the explicit `/execute` endpoint.
-The result or safe failure message is stored durably. M4 adds task, readiness,
-and slot-aware placement.
+Today, `conductor-worker` is the long-running process that automatically
+registers, heartbeats, reports CPU/RAM, polls, claims, and starts work. It then
+calls the explicit `/execute` endpoint. That endpoint currently invokes the
+fixture or configured Ollama runtime inside the control-plane process, and
+stores the result or safe failure message durably.
+
+This boundary is intentional and documented so the project does not pretend
+that model execution is already isolated. A later phase will move runtime
+adapters into the standalone process, together with a result-reporting and
+failure-recovery protocol. M4 adds task, readiness, and slot-aware placement.
+
+For the command and a runnable three-terminal example, see
+[`standalone-worker.md`](standalone-worker.md).
 
 Lease expiry and automatic retry are still planned. See
 [`models-and-runtimes.md`](models-and-runtimes.md) for the model-loading and

@@ -91,8 +91,12 @@ If that rule lived directly in a FastAPI route, a future CLI path might accident
 ## Runtime topology
 
 - One control-plane process owns the API, application services, scheduling loop, and database connection management.
-- One or more worker processes own runtime adapters and loaded model instances.
-- Workers initiate registration, heartbeat, lease renewal, job polling, and result reporting through the control-plane API.
+- The current standalone worker process owns registration, heartbeat, job polling,
+  graceful drain, and local CPU/RAM reports. A later phase will move runtime
+  adapters and loaded model instances into that process.
+- Workers initiate communication through the control-plane API. Today they lease
+  and start jobs, then call `/execute`; the control plane still invokes the
+  runtime adapter and persists the result.
 - A worker restart creates a new `worker_instance_id` for its stable configured identity. This is the same idea sometimes called an “epoch.” Messages from an older process instance are rejected.
 - Workers may execute more than one job only when their declared slot capacity and runtime adapter permit it.
 

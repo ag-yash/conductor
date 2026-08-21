@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from conductor.api.jobs import JobResponse
+from conductor.api.models import ModelResponse
 from conductor.domain.attempt import ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.model import ModelResidency, ResidencyStatus
@@ -14,6 +15,8 @@ from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.services.workers import (
     BenchmarkCommand,
+    CompleteAttemptCommand,
+    FailAttemptCommand,
     RecordResourceSnapshotCommand,
     RegisterWorkerCommand,
     WorkerService,
@@ -83,12 +86,14 @@ class LeaseResponse(BaseModel):
 
     job: JobResponse
     attempt: AttemptResponse
+    model: ModelResponse | None
 
     @classmethod
     def from_domain(cls, lease: WorkLease) -> "LeaseResponse":
         return cls(
             job=JobResponse.from_domain(lease.job),
             attempt=AttemptResponse.from_domain(lease.attempt),
+            model=ModelResponse.from_domain(lease.model) if lease.model is not None else None,
         )
 
 
@@ -223,6 +228,59 @@ class ResourceSnapshotResponse(BaseModel):
         )
 
 
+class CompleteAttemptRequest(BaseModel):
+    """The result that a worker process produced with its local runtime."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    result: dict[str, JsonValue]
+
+
+class FailAttemptRequest(BaseModel):
+    """A bounded, operator-safe runtime error sent by a worker."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    error_message: str = Field(min_length=1, max_length=1_000)
+
+
+class ResidencyReportRequest(BaseModel):
+    """A complete loaded-model snapshot owned by one worker process."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=300)
+    model_id: str = Field(min_length=1, max_length=100)
+    model_revision: int = Field(ge=1)
+    status: ResidencyStatus
+    active_execution_count: int = Field(ge=0)
+    measured_memory_bytes: int | None = Field(default=None, ge=0)
+    loaded_at: datetime | None = None
+    last_used_at: datetime | None = None
+    failure_message: str | None = Field(default=None, max_length=1_000)
+    created_at: datetime
+    updated_at: datetime
+    version: int = Field(ge=0)
+
+    def to_domain(self, *, worker_id: str, worker_instance_id: str) -> ModelResidency:
+        return ModelResidency(
+            id=self.id,
+            model_id=self.model_id,
+            model_revision=self.model_revision,
+            worker_id=worker_id,
+            worker_instance_id=worker_instance_id,
+            status=self.status,
+            active_execution_count=self.active_execution_count,
+            measured_memory_bytes=self.measured_memory_bytes,
+            loaded_at=self.loaded_at,
+            last_used_at=self.last_used_at,
+            failure_message=self.failure_message,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            version=self.version,
+        )
+
+
 def _service(request: Request) -> WorkerService:
     service: WorkerService = request.app.state.worker_service
     return service
@@ -296,11 +354,35 @@ def start_attempt(
 def complete_attempt(
     worker_id: str,
     attempt_id: str,
+    payload: CompleteAttemptRequest,
     request: Request,
     worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
 ) -> JobResponse:
     return JobResponse.from_domain(
-        _service(request).complete_attempt(worker_id, worker_instance_id, attempt_id)
+        _service(request).complete_attempt(
+            worker_id,
+            worker_instance_id,
+            attempt_id,
+            CompleteAttemptCommand(result=dict(payload.result)),
+        )
+    )
+
+
+@router.post("/{worker_id}/attempts/{attempt_id}/fail", response_model=JobResponse)
+def fail_attempt(
+    worker_id: str,
+    attempt_id: str,
+    payload: FailAttemptRequest,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> JobResponse:
+    return JobResponse.from_domain(
+        _service(request).fail_attempt(
+            worker_id,
+            worker_instance_id,
+            attempt_id,
+            FailAttemptCommand(error_message=payload.error_message),
+        )
     )
 
 
@@ -316,6 +398,34 @@ def execute_attempt(
     return JobResponse.from_domain(
         _service(request).execute_attempt(worker_id, worker_instance_id, attempt_id)
     )
+
+
+@router.post("/{worker_id}/residencies", response_model=ResidencyResponse)
+def report_residency(
+    worker_id: str,
+    payload: ResidencyReportRequest,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> ResidencyResponse:
+    """Store the worker process's latest model-residency observation."""
+
+    residency = _service(request).report_residency(
+        worker_id,
+        worker_instance_id,
+        payload.to_domain(worker_id=worker_id, worker_instance_id=worker_instance_id),
+    )
+    return ResidencyResponse.from_domain(residency)
+
+
+@router.delete("/{worker_id}/residencies/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_residency(
+    worker_id: str,
+    model_id: str,
+    request: Request,
+    worker_instance_id: Annotated[str, Header(alias="Worker-Instance-ID", min_length=1)],
+) -> Response:
+    _service(request).remove_residency(worker_id, worker_instance_id, model_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{worker_id}/residencies", response_model=list[ResidencyResponse])

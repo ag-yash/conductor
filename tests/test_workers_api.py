@@ -185,9 +185,11 @@ def test_worker_polls_starts_and_completes_a_deterministic_job(client: TestClien
     completed = client.post(
         f"/api/v1/workers/demo-worker/attempts/{attempt_id}/complete",
         headers=_headers(),
+        json={"result": {"source": "manual-demo"}},
     )
     assert completed.status_code == 200
     assert completed.json()["status"] == "succeeded"
+    assert completed.json()["result"] == {"source": "manual-demo"}
     assert completed.json()["active_attempt_id"] is None
 
     no_more_work = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
@@ -245,6 +247,48 @@ def test_worker_executes_fixture_runtime_and_persists_result(client: TestClient)
 
     fetched = client.get(f"/api/v1/jobs/{body['id']}")
     assert fetched.json()["result"] == body["result"]
+
+
+def test_worker_reports_residency_and_safe_runtime_failure(client: TestClient) -> None:
+    _register_fixture_model(client)
+    _register(client)
+    _submit(client, key="worker-owned-runtime-failure")
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    attempt_id = lease.json()["attempt"]["id"]
+    client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/start",
+        headers=_headers(),
+    )
+
+    residency = client.post(
+        "/api/v1/workers/demo-worker/residencies",
+        headers=_headers(),
+        json={
+            "id": "demo-worker:process-a:qwen-demo",
+            "model_id": "qwen-demo",
+            "model_revision": 1,
+            "status": "failed",
+            "active_execution_count": 0,
+            "measured_memory_bytes": None,
+            "loaded_at": None,
+            "last_used_at": "2026-08-21T00:00:00Z",
+            "failure_message": "fixture runtime input was invalid",
+            "created_at": "2026-08-21T00:00:00Z",
+            "updated_at": "2026-08-21T00:00:00Z",
+            "version": 2,
+        },
+    )
+    assert residency.status_code == 200
+    assert residency.json()["status"] == "failed"
+
+    failed = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{attempt_id}/fail",
+        headers=_headers(),
+        json={"error_message": "fixture runtime input was invalid"},
+    )
+    assert failed.status_code == 200
+    assert failed.json()["status"] == "failed"
+    assert failed.json()["error_message"] == "fixture runtime input was invalid"
 
 
 def test_runtime_failure_marks_attempt_and_job_failed(client: TestClient) -> None:

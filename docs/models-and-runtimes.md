@@ -99,7 +99,7 @@ The trade-off is that we own basic request/error translation.
 After a worker receives a lease, it now performs this sequence:
 
 ```text
-lease → start → execute → result/failure
+lease → start → local runtime execution → report result/failure
                     ↓
              load model if cold
                     ↓
@@ -110,7 +110,7 @@ For example, a fixture job goes through:
 
 1. `POST /workers/demo-worker/leases/next` reserves the job.
 2. `POST .../start` changes the attempt and job to `running`.
-3. `POST .../execute` asks `RuntimeManager` to load `qwen-demo` if needed.
+3. The standalone worker's `RuntimeManager` loads `qwen-demo` if needed.
 4. The fixture adapter returns a deterministic digest.
 5. The result is saved in the job row and the attempt becomes `succeeded`.
 
@@ -118,7 +118,7 @@ The `RuntimeManager` keeps residency in process memory because loaded model memo
 does not survive a worker restart. SQLite stores the durable model definition and
 job result; the manager stores the short-lived “currently loaded here” fact.
 
-If the same worker executes another job for the same model, the adapter is reused
+If the same worker process executes another job for the same model, the adapter is reused
 without another `load` call. This is the first warm-model optimization.
 
 ## Persisted residency and eviction
@@ -137,6 +137,9 @@ This row is not the model itself and it is not an execution history. It is an
 operator-friendly answer to: “Which worker currently has this model loaded?”
 
 The snapshot is updated after execution and disappears after successful eviction.
+Idle eviction also runs in the standalone worker because only that process owns
+the loaded model memory. When it unloads a model, it tells the API to remove the
+matching durable snapshot.
 If the worker process restarts, its old memory is gone; the old process identity
 prevents that stale residency from being reused.
 

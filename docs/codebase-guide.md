@@ -109,25 +109,20 @@ The transaction is the key correctness boundary. If only one of those writes wer
 ## Trace 3: a worker executes a model
 
 ```text
-POST /workers/{id}/attempts/{attempt}/execute
+WorkerRunner → RuntimeManager.execute → POST /workers/{id}/attempts/{attempt}/complete
    ↓
 WorkerService verifies the current worker process and running attempt
-   ↓
-Model definition is loaded from SQLite
-   ↓
-RuntimeManager finds or loads the adapter's model
-   ↓
-Adapter invokes the model-specific runtime
    ↓
 Job result is saved and attempt becomes succeeded
 ```
 
-The important separation is that `WorkerService` coordinates the use case, while
-`RuntimeManager` owns the short-lived loaded-model cache. The service does not
-know whether the model is fixture, Ollama, or a future ONNX runtime.
+The important separation is that the worker owns `RuntimeManager` and its
+short-lived loaded-model cache, while `WorkerService` owns the durable state
+transition. The service does not know whether the worker used fixture, Ollama,
+or a future ONNX runtime.
 
-After execution, `WorkerService` also copies the manager's latest residency
-snapshot into SQLite. This gives operators a durable view without pretending that
+Before completion, the worker reports the manager's latest residency snapshot
+to SQLite. This gives operators a durable view without pretending that
 SQLite owns the model's in-memory object.
 
 To evict an idle model:

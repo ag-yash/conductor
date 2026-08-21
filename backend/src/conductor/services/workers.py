@@ -10,7 +10,7 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus, utc_now
-from conductor.domain.model import ModelResidency
+from conductor.domain.model import ModelDefinition, ModelResidency
 from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.runtime.base import RuntimeAdapterError
@@ -44,6 +44,7 @@ class WorkLease:
 
     job: Job
     attempt: ExecutionAttempt
+    model: ModelDefinition | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +68,20 @@ class RecordResourceSnapshotCommand:
     host_available_memory_bytes: int
     process_cpu_percent: float
     process_memory_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class CompleteAttemptCommand:
+    """The output a worker produced outside the control-plane process."""
+
+    result: Mapping[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class FailAttemptCommand:
+    """A safe, worker-reported explanation for one runtime failure."""
+
+    error_message: str
 
 
 class WorkerService:
@@ -208,7 +223,7 @@ class WorkerService:
                 uow.commit()
             except ConcurrentUpdate as error:
                 raise WorkerConflict("job was assigned by another worker; poll again") from error
-            return WorkLease(job=assigned, attempt=attempt)
+            return WorkLease(job=assigned, attempt=attempt, model=model)
 
     def start_attempt(self, worker_id: str, instance_id: str, attempt_id: str) -> ExecutionAttempt:
         with self._uow_factory() as uow:
@@ -228,7 +243,13 @@ class WorkerService:
                 raise WorkerConflict("attempt could not be started") from error
             return started
 
-    def complete_attempt(self, worker_id: str, instance_id: str, attempt_id: str) -> Job:
+    def complete_attempt(
+        self,
+        worker_id: str,
+        instance_id: str,
+        attempt_id: str,
+        command: CompleteAttemptCommand,
+    ) -> Job:
         with self._uow_factory() as uow:
             attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
             try:
@@ -236,13 +257,66 @@ class WorkerService:
                 # process cannot finish a job after a newer attempt has taken over.
                 completed = attempt.transition(AttemptStatus.SUCCEEDED)
                 job = self._job_for_attempt(uow, attempt)
-                succeeded = job.succeed(result={})
+                succeeded = job.succeed(result=dict(command.result))
                 uow.attempts.update(completed, expected_version=attempt.version)
                 uow.jobs.update(succeeded, expected_version=job.version)
                 uow.commit()
             except (ConcurrentUpdate, InvalidStateTransition) as error:
                 raise WorkerConflict("attempt could not be completed") from error
             return succeeded
+
+    def fail_attempt(
+        self,
+        worker_id: str,
+        instance_id: str,
+        attempt_id: str,
+        command: FailAttemptCommand,
+    ) -> Job:
+        """Persist a safe failure reported by the process that ran the model."""
+
+        with self._uow_factory() as uow:
+            attempt = self._owned_attempt(uow, worker_id, instance_id, attempt_id)
+            try:
+                failed = attempt.transition(AttemptStatus.FAILED)
+                job = self._job_for_attempt(uow, attempt)
+                failed_job = job.fail(command.error_message)
+                uow.attempts.update(failed, expected_version=attempt.version)
+                uow.jobs.update(failed_job, expected_version=job.version)
+                uow.commit()
+            except (ConcurrentUpdate, InvalidStateTransition) as error:
+                raise WorkerConflict("attempt could not be marked failed") from error
+            return failed_job
+
+    def report_residency(
+        self, worker_id: str, instance_id: str, residency: ModelResidency
+    ) -> ModelResidency:
+        """Persist one worker-owned loaded-model snapshot for operator views."""
+
+        if (residency.worker_id, residency.worker_instance_id) != (worker_id, instance_id):
+            raise WorkerConflict("worker may only report its own model residency")
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            uow.model_residencies.upsert(residency)
+            uow.commit()
+            return residency
+
+    def remove_residency(self, worker_id: str, instance_id: str, model_id: str) -> None:
+        """Remove a snapshot after this worker has unloaded its local model."""
+
+        with self._uow_factory() as uow:
+            self._current_worker(uow.workers.get(worker_id), instance_id)
+            residency = next(
+                (
+                    item
+                    for item in uow.model_residencies.list_for_worker(worker_id, instance_id)
+                    if item.model_id == model_id
+                ),
+                None,
+            )
+            if residency is None:
+                return
+            uow.model_residencies.delete(residency.id)
+            uow.commit()
 
     def execute_attempt(self, worker_id: str, instance_id: str, attempt_id: str) -> Job:
         """Invoke the configured runtime, then atomically persist its result."""

@@ -57,8 +57,29 @@ def test_worker_registers_reports_resources_and_executes_one_lease() -> None:
             {"status": "ready"},  # registration
             {"status": "ready"},  # heartbeat
             {"id": "snapshot-1"},  # resource report
-            {"job": {"id": "job-1"}, "attempt": {"id": "attempt-1"}},
+            {
+                "job": {
+                    "id": "job-1",
+                    "task": "text.generate",
+                    "input": {"prompt": "hello"},
+                    "parameters": {},
+                },
+                "attempt": {"id": "attempt-1"},
+                "model": {
+                    "id": "fixture-demo",
+                    "display_name": "Fixture demo",
+                    "runtime_kind": "fixture",
+                    "artifact": "fixture://demo",
+                    "supported_tasks": ["text.generate"],
+                    "expected_memory_bytes": 1,
+                    "idle_timeout_seconds": 300,
+                    "enabled": True,
+                    "revision": 1,
+                    "created_at": "2026-08-20T00:00:00+00:00",
+                },
+            },
             {"status": "running"},
+            {"status": "ready"},
             {"status": "succeeded"},
         ]
     )
@@ -74,10 +95,13 @@ def test_worker_registers_reports_resources_and_executes_one_lease() -> None:
         "workers/demo-worker/resource-snapshots",
         "workers/demo-worker/leases/next",
         "workers/demo-worker/attempts/attempt-1/start",
-        "workers/demo-worker/attempts/attempt-1/execute",
+        "workers/demo-worker/residencies",
+        "workers/demo-worker/attempts/attempt-1/complete",
     ]
     assert client.calls[2]["payload"] == FakeSampler().sample()
     assert client.calls[3]["headers"] == {"Worker-Instance-ID": "process-a"}
+    assert client.calls[-1]["payload"] == {"result": client.calls[-1]["payload"]["result"]}
+    assert client.calls[-1]["payload"]["result"]["fixture_digest"]
 
 
 def test_worker_does_not_repeat_due_reports_before_their_intervals() -> None:

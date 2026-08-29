@@ -30,6 +30,28 @@ def _submit(client: TestClient, key: str) -> dict[str, object]:
     return cast(dict[str, object], response.json())
 
 
+def _report_ready_residency(client: TestClient, worker_id: str) -> None:
+    response = client.post(
+        f"/api/v1/workers/{worker_id}/residencies",
+        headers=_headers(worker_id),
+        json={
+            "id": f"{worker_id}:{worker_id}-process:qwen-demo",
+            "model_id": "qwen-demo",
+            "model_revision": 1,
+            "status": "ready",
+            "active_execution_count": 0,
+            "measured_memory_bytes": None,
+            "loaded_at": "2026-08-30T00:00:00Z",
+            "last_used_at": "2026-08-30T00:00:00Z",
+            "failure_message": None,
+            "created_at": "2026-08-30T00:00:00Z",
+            "updated_at": "2026-08-30T00:00:00Z",
+            "version": 1,
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_scheduler_prefers_capacity_and_records_its_reason(client: TestClient) -> None:
     _register(client, "worker-a")
     _register(client, "worker-b", max_parallel_jobs=2)
@@ -59,3 +81,23 @@ def test_scheduler_prefers_capacity_and_records_its_reason(client: TestClient) -
     candidates = {candidate["worker_id"]: candidate for candidate in body[0]["candidates"]}
     assert candidates["worker-a"]["reason"] == "no_free_slots"
     assert candidates["worker-b"]["reason"] == "eligible"
+
+
+def test_scheduler_prefers_an_eligible_worker_with_a_warm_model(client: TestClient) -> None:
+    _register(client, "worker-a")
+    _register(client, "worker-b")
+    _report_ready_residency(client, "worker-b")
+    job = _submit(client, "resident-model-job")
+
+    not_selected = client.post("/api/v1/workers/worker-a/leases/next", headers=_headers("worker-a"))
+    assert not_selected.status_code == 204
+
+    selected = client.post("/api/v1/workers/worker-b/leases/next", headers=_headers("worker-b"))
+    assert selected.status_code == 200
+    assert selected.json()["job"]["id"] == job["id"]
+
+    decisions = client.get(f"/api/v1/jobs/{job['id']}/scheduling-decisions").json()
+    assert decisions[0]["reason"] == "resident_model_preferred"
+    candidates = {candidate["worker_id"]: candidate for candidate in decisions[0]["candidates"]}
+    assert candidates["worker-a"]["model_is_resident"] is False
+    assert candidates["worker-b"]["model_is_resident"] is True

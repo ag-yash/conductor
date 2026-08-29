@@ -49,7 +49,7 @@ and a model you have already pulled.
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
 | Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence, and bounded retry after an expired worker lease | Running-job cancellation |
 | Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, `conductor-worker` with worker-owned runtime execution, and heartbeat-expiry recovery | More advanced failure diagnosis |
-| Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, resident-model, priority, and queue-depth scoring |
+| Scheduling | Deterministic task/capacity eligibility, warm-model preference, least-loaded fallback, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, worker-owned on-demand loading, warm reuse, and idle eviction | ONNX adapter and memory-pressure policy |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
 | Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions |

@@ -7,7 +7,10 @@ Conductor makes every choice explainable. When a worker asks for work, it checks
 3. Does it have a free execution slot?
 4. When it has a resource report, does the model fit after Conductor's 512 MiB memory reserve?
 
-Among eligible workers, Conductor picks the least busy one. If two workers are equally busy, it picks the alphabetically first worker ID. This tie-break makes demos and tests predictable.
+Among eligible workers, Conductor first prefers a worker that already has the
+requested model loaded. This avoids a cold model load. If several candidates are
+equally warm (or all cold), it picks the least busy one, then the alphabetically
+first worker ID. This makes demos and tests predictable.
 
 ## Eligibility before scoring
 
@@ -53,9 +56,17 @@ worker-c: 2 / 4 = 0.50
 
 The smallest eligible ratio wins. When ratios are equal, worker ID breaks the tie.
 
-This simple calculation is explainable and deterministic. It does not yet use CPU,
-model residency, job priority, or model load time. Those factors should be added
-only with reliable measurements and tests.
+This calculation is explainable and deterministic. Model residency is now a
+first preference: a warm worker wins over a cold one only after both pass all
+hard constraints. CPU, job priority, and queue depth remain future work.
+
+### Warm-model example
+
+`worker-a` and `worker-b` both have zero active slots. `worker-b` has already
+loaded `qwen-demo`; `worker-a` has not. For a `qwen-demo` job, `worker-b` wins
+with `resident_model_preferred`, even though `worker-a` comes first
+alphabetically. The saved candidate data includes `model_is_resident` so the
+dashboard can show this was a measured scheduling input, not a guess.
 
 ## Memory headroom when telemetry exists
 
@@ -156,7 +167,9 @@ If we inspected only current state at 10:01, the 10:00 decision might look wrong
 
 Separating these responsibilities makes scheduling logic easy to test and keeps database failures out of the ranking algorithm.
 
-This is intentionally a simple scheduler. M5 adds model-specific information such as whether a model is already loaded; M4 focuses on proving fair, inspectable capacity decisions first.
+The policy now includes one model-specific preference: ready residency. It still
+does not rank by CPU, priority, or queue depth until those inputs have a clear
+measurement and test contract.
 
 ## Trade-offs in the current design
 

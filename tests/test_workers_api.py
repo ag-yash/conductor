@@ -1,7 +1,7 @@
 """End-to-end tests for the M3 worker control-plane contract."""
 
 from datetime import timedelta
-from typing import cast
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 
@@ -234,7 +234,10 @@ def test_expired_running_lease_is_lost_then_retried_by_a_new_worker(client: Test
         headers=_headers(),
     )
 
-    service = client.app.state.worker_service
+    # Starlette's TestClient type exposes an ASGI callable, while the concrete
+    # FastAPI app carries `.state`. The cast keeps this deliberate test seam
+    # explicit for strict type checking.
+    service = cast(Any, client.app).state.worker_service
     summary = service.recover_expired_leases(now=utc_now() + timedelta(seconds=20))
     assert summary.unreachable_workers == 1
     assert summary.lost_attempts == 1
@@ -274,7 +277,7 @@ def test_expired_final_attempt_marks_job_failed(client: TestClient) -> None:
         headers=_headers(),
     )
 
-    summary = client.app.state.worker_service.recover_expired_leases(
+    summary = cast(Any, client.app).state.worker_service.recover_expired_leases(
         now=utc_now() + timedelta(seconds=20)
     )
     assert summary.failed_jobs == 1

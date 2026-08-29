@@ -15,6 +15,7 @@ class WorkerStatus(StrEnum):
 
     READY = "ready"
     DRAINING = "draining"
+    UNREACHABLE = "unreachable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +57,8 @@ class Worker:
         """Record liveness only for the process that currently owns this worker."""
 
         self._require_current_instance(instance_id)
+        if self.status is WorkerStatus.UNREACHABLE:
+            raise InvalidStateTransition("worker", self.status, WorkerStatus.READY)
         return replace(
             self,
             last_heartbeat_at=now or utc_now(),
@@ -73,6 +76,18 @@ class Worker:
         return replace(
             self,
             status=WorkerStatus.DRAINING,
+            last_heartbeat_at=now or utc_now(),
+            version=self.version + 1,
+        )
+
+    def mark_unreachable(self, *, now: datetime | None = None) -> Self:
+        """Record expired liveness without claiming the OS process is dead."""
+
+        if self.status is WorkerStatus.UNREACHABLE:
+            return self
+        return replace(
+            self,
+            status=WorkerStatus.UNREACHABLE,
             last_heartbeat_at=now or utc_now(),
             version=self.version + 1,
         )

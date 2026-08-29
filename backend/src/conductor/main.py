@@ -59,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.worker_service = WorkerService(
         lambda: SqlUnitOfWork(database),
         runtime_manager=RuntimeManager.default(),
+        heartbeat_timeout_seconds=resolved_settings.worker_heartbeat_timeout_seconds,
     )
     application.state.model_service = ModelService(lambda: SqlUnitOfWork(database))
     application.add_middleware(RequestContextMiddleware)

@@ -17,6 +17,7 @@ from conductor.services.workers import (
     BenchmarkCommand,
     CompleteAttemptCommand,
     FailAttemptCommand,
+    LeaseRecoverySummary,
     RecordResourceSnapshotCommand,
     RegisterWorkerCommand,
     WorkerService,
@@ -228,6 +229,24 @@ class ResourceSnapshotResponse(BaseModel):
         )
 
 
+class LeaseRecoveryResponse(BaseModel):
+    """Counts from one safe scan for expired worker leases."""
+
+    unreachable_workers: int
+    lost_attempts: int
+    retried_jobs: int
+    failed_jobs: int
+
+    @classmethod
+    def from_domain(cls, summary: LeaseRecoverySummary) -> "LeaseRecoveryResponse":
+        return cls(
+            unreachable_workers=summary.unreachable_workers,
+            lost_attempts=summary.lost_attempts,
+            retried_jobs=summary.retried_jobs,
+            failed_jobs=summary.failed_jobs,
+        )
+
+
 class CompleteAttemptRequest(BaseModel):
     """The result that a worker process produced with its local runtime."""
 
@@ -304,6 +323,13 @@ def register_worker(payload: RegisterWorkerRequest, request: Request) -> WorkerR
         )
     )
     return WorkerResponse.from_domain(worker)
+
+
+@router.post("/recover-expired-leases", response_model=LeaseRecoveryResponse)
+def recover_expired_leases(request: Request) -> LeaseRecoveryResponse:
+    """Run the bounded local recovery scan on demand for demos and operations."""
+
+    return LeaseRecoveryResponse.from_domain(_service(request).recover_expired_leases())
 
 
 @router.post("/{worker_id}/heartbeat", response_model=WorkerResponse)

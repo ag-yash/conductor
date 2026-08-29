@@ -1,9 +1,11 @@
 """End-to-end tests for the M3 worker control-plane contract."""
 
+from datetime import timedelta
 from typing import cast
 
 from fastapi.testclient import TestClient
 
+from conductor.domain.job import utc_now
 from tests.test_jobs_api import JOB_REQUEST
 
 WORKER = {
@@ -220,6 +222,63 @@ def test_worker_cannot_start_another_process_attempt(client: TestClient) -> None
     )
     assert rejected.status_code == 409
     assert rejected.json()["error"]["code"] == "worker_conflict"
+
+
+def test_expired_running_lease_is_lost_then_retried_by_a_new_worker(client: TestClient) -> None:
+    _register(client)
+    job = _submit(client, key="expired-lease-retry")
+    first_lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    first_attempt_id = first_lease.json()["attempt"]["id"]
+    client.post(
+        f"/api/v1/workers/demo-worker/attempts/{first_attempt_id}/start",
+        headers=_headers(),
+    )
+
+    service = client.app.state.worker_service
+    summary = service.recover_expired_leases(now=utc_now() + timedelta(seconds=20))
+    assert summary.unreachable_workers == 1
+    assert summary.lost_attempts == 1
+    assert summary.retried_jobs == 1
+    assert summary.failed_jobs == 0
+
+    recovered = client.get(f"/api/v1/jobs/{job['id']}")
+    assert recovered.json()["status"] == "queued"
+    assert recovered.json()["active_attempt_id"] is None
+    assert client.get("/api/v1/workers").json()[0]["status"] == "unreachable"
+
+    client.post("/api/v1/workers/register", json={**WORKER, "worker_instance_id": "process-b"})
+    retry_lease = client.post(
+        "/api/v1/workers/demo-worker/leases/next", headers=_headers("process-b")
+    )
+    assert retry_lease.status_code == 200
+    assert retry_lease.json()["attempt"]["ordinal"] == 2
+
+    late_completion = client.post(
+        f"/api/v1/workers/demo-worker/attempts/{first_attempt_id}/complete",
+        headers=_headers(),
+        json={"result": {"too": "late"}},
+    )
+    assert late_completion.status_code == 409
+
+
+def test_expired_final_attempt_marks_job_failed(client: TestClient) -> None:
+    _register(client)
+    request = {**JOB_REQUEST, "max_attempts": 1}
+    response = client.post(
+        "/api/v1/jobs", headers={"Idempotency-Key": "expired-final-attempt"}, json=request
+    )
+    job_id = response.json()["id"]
+    lease = client.post("/api/v1/workers/demo-worker/leases/next", headers=_headers())
+    client.post(
+        f"/api/v1/workers/demo-worker/attempts/{lease.json()['attempt']['id']}/start",
+        headers=_headers(),
+    )
+
+    summary = client.app.state.worker_service.recover_expired_leases(
+        now=utc_now() + timedelta(seconds=20)
+    )
+    assert summary.failed_jobs == 1
+    assert client.get(f"/api/v1/jobs/{job_id}").json()["status"] == "failed"
 
 
 def test_worker_executes_fixture_runtime_and_persists_result(client: TestClient) -> None:

@@ -287,6 +287,24 @@ class SqlAttemptRepository:
         )
         return len(self._session.exec(statement).all())
 
+    def list_active_for_worker(self, worker_id: str, instance_id: str) -> list[ExecutionAttempt]:
+        active = (
+            AttemptStatus.ASSIGNED.value,
+            AttemptStatus.STARTING.value,
+            AttemptStatus.RUNNING.value,
+        )
+        statement = select(AttemptRecord).where(
+            AttemptRecord.worker_id == worker_id,
+            AttemptRecord.worker_instance_id == instance_id,
+            col(AttemptRecord.status).in_(active),
+        )
+        return [_attempt_to_domain(record) for record in self._session.exec(statement).all()]
+
+    def next_ordinal_for_job(self, job_id: str) -> int:
+        statement = select(AttemptRecord.ordinal).where(AttemptRecord.job_id == job_id)
+        ordinals = list(self._session.exec(statement).all())
+        return (max(ordinals) if ordinals else 0) + 1
+
 
 class SqlWorkerRepository:
     """Persist the one current process instance for every worker identity."""

@@ -136,15 +136,14 @@ loaded-model snapshot, then reports either the result or a safe failure to the
 control plane for durable storage.
 
 This makes inference-process isolation real: a slow model call no longer runs
-inside the FastAPI request that accepted the worker protocol. A later phase
-adds lease expiry and retry recovery when a worker disappears mid-execution.
+inside the FastAPI request that accepted the worker protocol.
 
 For the command and a runnable three-terminal example, see
 [`standalone-worker.md`](standalone-worker.md).
 
-Lease expiry and automatic retry are still planned. See
-[`models-and-runtimes.md`](models-and-runtimes.md) for the model-loading and
-runtime part of the flow.
+When a heartbeat deadline passes, Conductor marks the worker `unreachable`,
+marks its active attempt `lost`, and safely retries the job if its retry budget
+allows it. See [`lease-recovery.md`](lease-recovery.md) for the full timeline.
 
 ## Follow leasing through the code
 

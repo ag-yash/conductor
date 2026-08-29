@@ -135,7 +135,7 @@ class Job:
     def fail(self, message: str, *, now: datetime | None = None) -> Self:
         """Persist a safe failure message when the runtime cannot execute the job."""
 
-        if self.status is not JobStatus.RUNNING:
+        if self.status not in {JobStatus.ASSIGNED, JobStatus.RUNNING}:
             raise InvalidStateTransition("job", self.status, JobStatus.FAILED)
         return self._transition(
             JobStatus.FAILED,

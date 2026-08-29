@@ -96,9 +96,9 @@ standalone worker: register → heartbeat → report resources → lease → sta
 control-plane API:                                  report residency → complete/fail attempt
 ```
 
-The next resilience phase will handle a worker that disappears while a model is
-running. That needs lease expiry and retry rules; it is deliberately separate
-from this process-isolation phase.
+If a worker disappears while a model is running, heartbeat-expiry recovery marks
+its attempt lost and safely retries eligible work. See
+[`lease-recovery.md`](lease-recovery.md).
 
 ## Code path to read
 

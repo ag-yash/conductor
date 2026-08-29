@@ -47,8 +47,8 @@ and a model you have already pulled.
 | Area | Implemented now | Still planned |
 | --- | --- | --- |
 | Control plane | FastAPI application factory, health/readiness, typed settings, structured request IDs | Background scheduling loop and richer operational views |
-| Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence | Running-job cancellation, retries, lease-expiry recovery |
-| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, and `conductor-worker` with worker-owned runtime execution | Automatic failure detection and retry recovery |
+| Jobs | SQLite-backed submission, idempotency, listing, queued cancellation, result/error persistence, and bounded retry after an expired worker lease | Running-job cancellation |
+| Workers | Register, list, heartbeat, drain, polling, process-instance protection, fixed execution slots, durable CPU/RAM snapshots, `conductor-worker` with worker-owned runtime execution, and heartbeat-expiry recovery | More advanced failure diagnosis |
 | Scheduling | Deterministic task/capacity eligibility, least-loaded selection, persisted explanations, and memory-headroom deferral when telemetry is present | CPU scoring, resident-model, priority, and queue-depth scoring |
 | Runtimes | Fixture adapter, Ollama text adapter, worker-owned on-demand loading, warm reuse, and idle eviction | ONNX adapter and memory-pressure policy |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
@@ -102,9 +102,9 @@ design decisions that future code must satisfy.
 - `conductor-worker` is a separate OS process for registration, polling,
   heartbeats, graceful drain, CPU/RAM reporting, and model runtime execution.
   It reports a result or safe failure back to the FastAPI control plane.
-- Runtime invocation holds a service transaction open; that is acceptable for
-  the current local scope but will need redesign before long-running production
-  inference.
+- A worker can be declared unreachable after a missed heartbeat even when its
+  OS process is merely slow or disconnected. Late reports are rejected rather
+  than trusted; see [`lease-recovery.md`](lease-recovery.md).
 - Benchmark wall-clock time measures end-to-end adapter invocation. It is not a
   model-quality score and does not directly measure CPU, RAM, GPU, or accuracy.
 - A persisted residency is an operator snapshot. It cannot recreate model memory

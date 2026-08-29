@@ -1,8 +1,8 @@
 # State machines
 
-These transitions are the target V1 contract. Several core transitions are already
-implemented and tested, while retries, lease expiry, and running-job cancellation
-remain planned. See [`current-capabilities.md`](current-capabilities.md) for the
+These transitions are the target V1 contract. Several core transitions, including
+lease expiry and retries, are implemented and tested; running-job cancellation
+remains planned. See [`current-capabilities.md`](current-capabilities.md) for the
 current boundary before assuming a diagram is executable today.
 
 ## What a state machine is

@@ -101,6 +101,10 @@ def build_parser() -> argparse.ArgumentParser:
     worker_actions = workers.add_subparsers(dest="action", required=True)
     worker_register = worker_actions.add_parser("register", help="Register a worker from JSON.")
     _add_payload_file_argument(worker_register)
+    worker_actions.add_parser(
+        "recover-expired-leases",
+        help="Mark stale worker leases lost and safely retry eligible jobs.",
+    )
     for action, help_text in (
         ("heartbeat", "Send a worker heartbeat."),
         ("drain", "Stop a worker from receiving new jobs."),
@@ -194,6 +198,8 @@ def dispatch(args: argparse.Namespace, client: ApiClient) -> Any:
     if args.group == "workers":
         if args.action == "register":
             return client.request("POST", "workers/register", payload=_read_payload(args.file))
+        if args.action == "recover-expired-leases":
+            return client.request("POST", "workers/recover-expired-leases")
         worker_path = f"workers/{args.worker_id}"
         headers = _worker_headers(args)
         if args.action in {"heartbeat", "drain", "next-lease", "evict-idle"}:

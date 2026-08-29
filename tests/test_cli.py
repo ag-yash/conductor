@@ -152,6 +152,24 @@ def test_cli_reports_worker_resource_snapshot_from_json_file(tmp_path: Path) -> 
     ]
 
 
+def test_cli_requests_expired_lease_recovery() -> None:
+    client = FakeApiClient(response={"retried_jobs": 1})
+
+    code, stdout, stderr = _run(client, "workers", "recover-expired-leases")
+
+    assert code == 0
+    assert '"retried_jobs": 1' in stdout
+    assert stderr == ""
+    assert client.calls == [
+        {
+            "method": "POST",
+            "path": "workers/recover-expired-leases",
+            "payload": None,
+            "headers": None,
+        }
+    ]
+
+
 def test_cli_explains_api_errors_without_traceback() -> None:
     client = FakeApiClient(error=CliError("Cannot reach Conductor."))
 

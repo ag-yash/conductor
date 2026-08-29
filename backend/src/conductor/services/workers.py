@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from time import perf_counter_ns
 from typing import Any
 from uuid import uuid4
@@ -84,6 +85,16 @@ class FailAttemptCommand:
     error_message: str
 
 
+@dataclass(frozen=True, slots=True)
+class LeaseRecoverySummary:
+    """Small audit-friendly count returned after expired leases are recovered."""
+
+    unreachable_workers: int
+    lost_attempts: int
+    retried_jobs: int
+    failed_jobs: int
+
+
 class WorkerService:
     """Coordinate control-plane operations initiated by local workers."""
 
@@ -92,10 +103,12 @@ class WorkerService:
         uow_factory: Callable[[], UnitOfWork],
         policy: PlacementPolicy | None = None,
         runtime_manager: RuntimeManager | None = None,
+        heartbeat_timeout_seconds: int = 15,
     ) -> None:
         self._uow_factory = uow_factory
         self._policy = policy or PlacementPolicy()
         self._runtime_manager = runtime_manager or RuntimeManager.default()
+        self._heartbeat_timeout = timedelta(seconds=heartbeat_timeout_seconds)
 
     def register(self, command: RegisterWorkerCommand) -> Worker:
         with self._uow_factory() as uow:
@@ -156,6 +169,9 @@ class WorkerService:
             return drained
 
     def next_lease(self, worker_id: str, instance_id: str) -> WorkLease | None:
+        # Polling is a natural maintenance point: when one worker disappears,
+        # the next healthy worker can recover work without a separate daemon.
+        self.recover_expired_leases()
         with self._uow_factory() as uow:
             worker = self._current_worker(uow.workers.get(worker_id), instance_id)
             if worker.status is not WorkerStatus.READY:
@@ -204,7 +220,7 @@ class WorkerService:
             attempt = ExecutionAttempt.create(
                 attempt_id=str(uuid4()),
                 job_id=job.id,
-                ordinal=1,
+                ordinal=uow.attempts.next_ordinal_for_job(job.id),
                 worker_id=worker.id,
                 worker_instance_id=worker.instance_id,
             )
@@ -224,6 +240,55 @@ class WorkerService:
             except ConcurrentUpdate as error:
                 raise WorkerConflict("job was assigned by another worker; poll again") from error
             return WorkLease(job=assigned, attempt=attempt, model=model)
+
+    def recover_expired_leases(self, *, now: datetime | None = None) -> LeaseRecoverySummary:
+        """Make stale worker ownership safe to retry after its heartbeat deadline.
+
+        This does not prove a laptop process has died. It only says the control
+        plane has waited long enough that the old lease is no longer trusted.
+        A late report is still blocked by the attempt and process identities.
+        """
+
+        timestamp = now or utc_now()
+        deadline = timestamp - self._heartbeat_timeout
+        unreachable_workers = lost_attempts = retried_jobs = failed_jobs = 0
+        with self._uow_factory() as uow:
+            for worker in uow.workers.list():
+                if (
+                    worker.status is WorkerStatus.UNREACHABLE
+                    or worker.last_heartbeat_at >= deadline
+                ):
+                    continue
+                expired = worker.mark_unreachable(now=timestamp)
+                uow.workers.update(expired, expected_version=worker.version)
+                unreachable_workers += 1
+                for attempt in uow.attempts.list_active_for_worker(worker.id, worker.instance_id):
+                    job = uow.jobs.get(attempt.job_id)
+                    if job is None or job.active_attempt_id != attempt.id:
+                        continue
+                    lost = attempt.transition(AttemptStatus.LOST, now=timestamp)
+                    uow.attempts.update(lost, expected_version=attempt.version)
+                    if attempt.ordinal < job.max_attempts:
+                        uow.jobs.update(job.retry(now=timestamp), expected_version=job.version)
+                        retried_jobs += 1
+                    else:
+                        message = f"worker lease expired after {attempt.ordinal} attempts"
+                        uow.jobs.update(
+                            job.fail(message, now=timestamp), expected_version=job.version
+                        )
+                        failed_jobs += 1
+                    lost_attempts += 1
+            if unreachable_workers:
+                try:
+                    uow.commit()
+                except ConcurrentUpdate as error:
+                    raise WorkerConflict("lease recovery raced with worker progress") from error
+        return LeaseRecoverySummary(
+            unreachable_workers=unreachable_workers,
+            lost_attempts=lost_attempts,
+            retried_jobs=retried_jobs,
+            failed_jobs=failed_jobs,
+        )
 
     def start_attempt(self, worker_id: str, instance_id: str, attempt_id: str) -> ExecutionAttempt:
         with self._uow_factory() as uow:

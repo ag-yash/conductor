@@ -39,6 +39,12 @@ class AttemptRepository(Protocol):
 
     def count_active_for_worker(self, worker_id: str, instance_id: str) -> int: ...
 
+    def list_active_for_worker(
+        self, worker_id: str, instance_id: str
+    ) -> list[ExecutionAttempt]: ...
+
+    def next_ordinal_for_job(self, job_id: str) -> int: ...
+
 
 class WorkerRepository(Protocol):
     """Worker registration persistence needed by worker operations."""

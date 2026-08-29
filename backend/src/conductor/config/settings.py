@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8080, ge=1, le=65535)
     database_url: str = "sqlite:///./data/conductor.db"
     max_job_payload_bytes: int = Field(default=262_144, ge=1, le=10_485_760)
+    worker_heartbeat_timeout_seconds: int = Field(default=15, ge=3, le=3_600)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     version: str = __version__
 

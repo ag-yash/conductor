@@ -5,6 +5,7 @@ This package defines one common `load → invoke → unload` contract for local 
 - `base.py` contains the runtime-neutral protocol and result.
 - `fixture.py` provides predictable execution for tests without a model download.
 - `ollama.py` translates Conductor's `text.generate` task into Ollama's local HTTP API.
+- `onnx.py` translates `tensor.infer` jobs into ONNX Runtime tensor sessions.
 - `manager.py` loads an adapter on first use and reuses it for warm requests.
 
 The manager's residency cache is process-local on purpose. A loaded model is a
@@ -15,4 +16,4 @@ After a successful execution, the worker persists the manager's latest residency
 snapshot. Calling the worker's idle-eviction operation unloads eligible adapters
 and then removes those snapshots from SQLite.
 
-Runtime-specific request shapes stay here; the scheduler and domain must not depend on Ollama.
+Runtime-specific request shapes stay here; the scheduler and domain must not depend on Ollama or ONNX Runtime.

@@ -26,7 +26,7 @@ This glossary gives short definitions. Feature documents contain longer examples
 | Process-instance ID | Identity of one particular run of a logical worker | `demo-worker` may restart from `process-a` to `process-b` |
 | Repository | Code that hides database queries behind domain-focused operations | `SqlJobRepository.get(job_id)` |
 | Repository port | An interface describing what storage must do without choosing a database | `JobRepository` in `services/ports.py` |
-| Runtime adapter | Code that translates Conductor’s common runtime contract into one AI runtime’s API | The fixture and Ollama adapters implement `load`, `invoke`, and `unload` |
+| Runtime adapter | Code that translates Conductor’s common runtime contract into one AI runtime’s API | The fixture, Ollama, and ONNX adapters implement `load`, `invoke`, and `unload` |
 | Scheduler | Code that decides where queued work should run | `PlacementPolicy` selects an eligible worker |
 | Snapshot | A read-only picture of state at one point in time | Worker status and active slots used for one scheduling decision |
 | State machine | A list of allowed states and legal movements between them | A job may move from `queued` to `assigned`, but not directly to `succeeded` |

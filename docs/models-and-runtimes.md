@@ -51,7 +51,9 @@ adapter.invoke(model, task, input, parameters)
 adapter.unload(model)
 ```
 
-The Ollama adapter translates those calls into local HTTP JSON. A future ONNX adapter will translate the same contract into ONNX Runtime calls.
+The Ollama adapter translates those calls into local HTTP JSON. The ONNX adapter
+translates `tensor.infer` calls into an ONNX Runtime session. Each adapter owns
+the external library's request format, error handling, and model-loading details.
 
 This is the adapter pattern: Conductor depends on its own small interface while each integration handles external details.
 
@@ -110,7 +112,7 @@ For example, a fixture job goes through:
 
 1. `POST /workers/demo-worker/leases/next` reserves the job.
 2. `POST .../start` changes the attempt and job to `running`.
-3. The standalone worker's `RuntimeManager` loads `qwen-demo` if needed.
+3. The standalone worker's `RuntimeManager` loads the fixture, Ollama, or ONNX model if needed.
 4. The fixture adapter returns a deterministic digest.
 5. The result is saved in the job row and the attempt becomes `succeeded`.
 
@@ -164,7 +166,10 @@ The current M5 implementation provides:
 - a common runtime adapter protocol;
 - deterministic fixture execution;
 - Ollama load, generate, metrics, and unload translation.
-- worker execution through the fixture runtime or a configured local Ollama runtime;
+- ONNX `tensor.infer` execution for a trusted local `.onnx` artifact; see
+  [`onnx-runtime.md`](onnx-runtime.md).
+- worker execution through the fixture runtime, a configured local Ollama runtime,
+  or a trusted local ONNX artifact;
 - durable job results and safe runtime failure messages;
 - process-local warm-model reuse;
 - persisted residency snapshots and an idle-eviction endpoint.
@@ -179,13 +184,15 @@ work; the current endpoint makes the policy observable and testable first.
 2. `runtime/base.py`
 3. `runtime/fixture.py`
 4. `runtime/ollama.py`
-5. `services/models.py`
-6. `api/models.py`
-7. `tests/test_model_domain.py`
-8. `tests/test_runtime_adapters.py`
-9. `tests/test_models_api.py`
-10. `runtime/manager.py`
-11. `tests/test_workers_api.py`
+5. `runtime/onnx.py`
+6. `services/models.py`
+7. `api/models.py`
+8. `tests/test_model_domain.py`
+9. `tests/test_runtime_adapters.py`
+10. `tests/test_onnx_runtime.py`
+11. `tests/test_models_api.py`
+12. `runtime/manager.py`
+13. `tests/test_workers_api.py`
 
 ## Questions to check your understanding
 

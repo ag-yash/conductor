@@ -1,0 +1,9 @@
+{
+  "id": "tiny-classifier",
+  "display_name": "Tiny ONNX classifier",
+  "runtime_kind": "onnx",
+  "artifact": "./models/tiny-classifier.onnx",
+  "supported_tasks": ["tensor.infer"],
+  "expected_memory_bytes": 67108864,
+  "idle_timeout_seconds": 300
+}

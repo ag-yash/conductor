@@ -15,6 +15,7 @@ from conductor.domain.model import ModelDefinition, ModelResidency, ResidencySta
 from conductor.runtime.base import RuntimeAdapter, RuntimeAdapterError, RuntimeResult
 from conductor.runtime.fixture import FixtureRuntimeAdapter
 from conductor.runtime.ollama import OllamaRuntimeAdapter
+from conductor.runtime.onnx import OnnxRuntimeAdapter
 
 
 class RuntimeManager:
@@ -39,6 +40,7 @@ class RuntimeManager:
                 # and executed. Keeping it in the registry makes the integration
                 # available without requiring Ollama for fixture-only development.
                 RuntimeKind.OLLAMA: OllamaRuntimeAdapter(),
+                RuntimeKind.ONNX: OnnxRuntimeAdapter(),
             }
         )
 

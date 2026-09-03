@@ -58,8 +58,9 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 - Benchmark API and recorded latency/runtime summaries.
 - Expired-heartbeat recovery: lost attempts and bounded retries. **Complete.**
 - Warm-model preference with persisted candidate evidence and dashboard explanation. **Complete.**
+- ONNX Runtime `tensor.infer` adapter with CoreML/CPU provider selection. **Complete.**
 
-Demo: run fixture and Ollama models through one task contract, inspect residency,
+Demo: run fixture, Ollama, and ONNX models through their shared lifecycle contract, inspect residency,
 benchmark warm execution, and show idle unload behavior.
 
 Concepts introduced: adapter pattern, model metadata versus loaded state, cold starts, resource measurement, eviction policy, runtime isolation, and benchmarking.

@@ -11,7 +11,7 @@ from conductor.domain.attempt import AttemptStatus, ExecutionAttempt
 from conductor.domain.benchmark import BenchmarkSummary
 from conductor.domain.errors import InvalidStateTransition
 from conductor.domain.job import Job, JobStatus, utc_now
-from conductor.domain.model import ModelDefinition, ModelResidency
+from conductor.domain.model import ModelDefinition, ModelResidency, ResidencyStatus
 from conductor.domain.resource import WorkerResourceSnapshot
 from conductor.domain.worker import Worker, WorkerStatus
 from conductor.runtime.base import RuntimeAdapterError
@@ -192,6 +192,13 @@ class WorkerService:
                     ),
                     resource_snapshot=uow.worker_resource_snapshots.latest_for_worker(
                         candidate.id, candidate.instance_id
+                    ),
+                    resident_model_ids=frozenset(
+                        residency.model_id
+                        for residency in uow.model_residencies.list_for_worker(
+                            candidate.id, candidate.instance_id
+                        )
+                        if residency.status is ResidencyStatus.READY
                     ),
                 )
                 for candidate in uow.workers.list()

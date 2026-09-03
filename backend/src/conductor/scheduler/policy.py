@@ -17,6 +17,7 @@ class WorkerSnapshot:
     worker: Worker
     active_slots: int
     resource_snapshot: WorkerResourceSnapshot | None = None
+    resident_model_ids: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class CandidateExplanation:
     max_parallel_jobs: int
     available_memory_bytes: int | None
     required_memory_bytes: int | None
+    model_is_resident: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +57,7 @@ class RecordedSchedulingDecision:
 
 
 class PlacementPolicy:
-    """Prefer the least-busy eligible worker, then break ties by worker ID."""
+    """Prefer an eligible warm model, then lower load, then stable worker ID."""
 
     def __init__(
         self, memory_safety_reserve_bytes: int = DEFAULT_MEMORY_SAFETY_RESERVE_BYTES
@@ -90,6 +92,7 @@ class PlacementPolicy:
                         resource.host_available_memory_bytes if resource is not None else None
                     ),
                     required_memory_bytes=expected_memory_bytes,
+                    model_is_resident=job.model_id in snapshot.resident_model_ids,
                 )
             )
             if reason is None:
@@ -102,18 +105,23 @@ class PlacementPolicy:
                 candidates=tuple(explanations),
             )
 
-        # Hard constraints ran above. Only now do we score eligible workers. The
-        # worker ID is a stable tie-breaker when their load ratios are equal.
+        # Hard constraints ran above. A warm model avoids a cold load, but it
+        # never overrides safety/capacity rules. Load and worker ID keep the
+        # preference deterministic among equally warm candidates.
         selected = min(
             eligible,
             key=lambda item: (
+                0 if job.model_id in item.resident_model_ids else 1,
                 item.active_slots / item.worker.max_parallel_jobs,
                 item.worker.id,
             ),
         )
+        resident_eligible = any(job.model_id in item.resident_model_ids for item in eligible)
         return PlacementDecision(
             selected_worker_id=selected.worker.id,
-            reason="least_loaded_eligible_worker",
+            reason=(
+                "resident_model_preferred" if resident_eligible else "least_loaded_eligible_worker"
+            ),
             candidates=tuple(explanations),
         )
 

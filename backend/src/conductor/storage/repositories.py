@@ -388,6 +388,7 @@ class SqlSchedulingDecisionRepository:
                         "max_parallel_jobs": candidate.max_parallel_jobs,
                         "available_memory_bytes": candidate.available_memory_bytes,
                         "required_memory_bytes": candidate.required_memory_bytes,
+                        "model_is_resident": candidate.model_is_resident,
                     }
                     for candidate in decision.candidates
                 ],
@@ -417,6 +418,7 @@ class SqlSchedulingDecisionRepository:
                         max_parallel_jobs=candidate["max_parallel_jobs"],
                         available_memory_bytes=candidate.get("available_memory_bytes"),
                         required_memory_bytes=candidate.get("required_memory_bytes"),
+                        model_is_resident=candidate.get("model_is_resident", False),
                     )
                     for candidate in record.candidates
                 ),

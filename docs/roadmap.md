@@ -57,6 +57,7 @@ Concepts introduced: snapshots, eligibility constraints, normalized load, determ
 - Idle eviction through a testable worker operation; periodic memory-pressure policy remains hardening work.
 - Benchmark API and recorded latency/runtime summaries.
 - Expired-heartbeat recovery: lost attempts and bounded retries. **Complete.**
+- Warm-model preference with persisted candidate evidence and dashboard explanation. **Complete.**
 
 Demo: run fixture and Ollama models through one task contract, inspect residency,
 benchmark warm execution, and show idle unload behavior.

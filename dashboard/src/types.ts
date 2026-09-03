@@ -44,6 +44,7 @@ export type SchedulingCandidate = {
   max_parallel_jobs: number;
   available_memory_bytes: number | null;
   required_memory_bytes: number | null;
+  model_is_resident: boolean;
 };
 
 export type SchedulingDecision = {

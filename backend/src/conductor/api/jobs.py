@@ -82,6 +82,7 @@ class CandidateExplanationResponse(BaseModel):
     max_parallel_jobs: int
     available_memory_bytes: int | None
     required_memory_bytes: int | None
+    model_is_resident: bool
 
 
 class SchedulingDecisionResponse(BaseModel):
@@ -159,6 +160,7 @@ def list_scheduling_decisions(job_id: str, request: Request) -> list[SchedulingD
                     max_parallel_jobs=candidate.max_parallel_jobs,
                     available_memory_bytes=candidate.available_memory_bytes,
                     required_memory_bytes=candidate.required_memory_bytes,
+                    model_is_resident=candidate.model_is_resident,
                 )
                 for candidate in decision.candidates
             ],

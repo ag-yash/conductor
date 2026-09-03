@@ -18,6 +18,10 @@ classifiers = [
 ]
 dependencies = [
   "alembic>=1.14,<2",
+  # Starlette's TestClient still imports an AnyIO alias deprecated in 4.12+.
+  # Keep local and CI test environments reproducible until that upstream path
+  # no longer emits a warning that our test suite correctly treats as an error.
+  "anyio>=4,<4.12",
   "fastapi>=0.115,<1",
   "numpy>=2,<3",
   "onnxruntime>=1.20,<2",

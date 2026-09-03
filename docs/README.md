@@ -19,12 +19,13 @@ If this is your first time reading the project:
 11. [`lease-recovery.md`](lease-recovery.md) — understand heartbeat expiry, lost attempts, and safe retries.
 12. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
 13. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
-14. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
-15. [`state-machines.md`](state-machines.md) — understand legal status changes.
-16. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-17. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-18. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-19. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+14. [`onnx-runtime.md`](onnx-runtime.md) — run local tensor inference and understand provider selection.
+15. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
+16. [`state-machines.md`](state-machines.md) — understand legal status changes.
+17. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+18. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+19. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+20. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

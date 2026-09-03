@@ -1,0 +1,10 @@
+{
+  "task": "tensor.infer",
+  "model_id": "tiny-classifier",
+  "input": {
+    "inputs": {
+      "features": [[1.0, 2.0, 3.0, 4.0]]
+    }
+  },
+  "parameters": {}
+}

@@ -10,7 +10,7 @@ Conductor currently provides:
 - deterministic slot-aware scheduling;
 - persisted explanations showing why a worker was selected or rejected.
 - trusted model definitions plus process-specific residency snapshots;
-- fixture and Ollama runtime adapters, model loading, warm reuse, and idle eviction;
+- fixture, Ollama, and ONNX runtime adapters, model loading, warm reuse, and idle eviction;
 - runtime benchmark summaries through the worker API.
 - a terminal CLI for the existing API, including models, jobs, worker operations,
   residencies, and benchmarks.
@@ -143,8 +143,8 @@ Read the structured log with the matching `X-Request-ID`. Database-path or migra
 
 ## What comes next
 
-The remaining runtime work adds an ONNX adapter and deeper resource measurements.
-M6 includes the CLI plus read-only dashboard summaries and investigation views;
-resource charts and live updates remain planned. Check
+ONNX tensor inference is available for a trusted local `.onnx` file; see
+[`onnx-runtime.md`](onnx-runtime.md). Historical resource charts and live
+updates remain planned. Check
 [`current-capabilities.md`](current-capabilities.md) before relying on a target
 feature described elsewhere.

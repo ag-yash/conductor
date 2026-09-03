@@ -119,7 +119,7 @@ Job result is saved and attempt becomes succeeded
 The important separation is that the worker owns `RuntimeManager` and its
 short-lived loaded-model cache, while `WorkerService` owns the durable state
 transition. The service does not know whether the worker used fixture, Ollama,
-or a future ONNX runtime.
+or the ONNX runtime.
 
 Before completion, the worker reports the manager's latest residency snapshot
 to SQLite. This gives operators a durable view without pretending that

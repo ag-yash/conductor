@@ -14,6 +14,7 @@ class RuntimeKind(StrEnum):
 
     FIXTURE = "fixture"
     OLLAMA = "ollama"
+    ONNX = "onnx"
 
 
 @dataclass(frozen=True, slots=True)

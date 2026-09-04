@@ -237,7 +237,7 @@ function WorkerDetail({ worker, residencies, benchmarks, resourceSnapshots, erro
   return <article className="panel detail-panel"><DetailHeading title={`Worker: ${worker.id}`} onClose={onClose} />
     <p className="secondary">Current process instance: {worker.instance_id}. A restart changes this ID, so old process messages cannot update new worker state.</p>
     {error ? <p className="detail-error">{error}</p> : <>
-      <DetailBlock title="Latest resource snapshot"><p className="hint">A worker reports these measurements about its own machine and process. They are the raw facts that future memory-aware scheduling and charts use.</p><ResourceSnapshotDetail snapshots={resourceSnapshots} /></DetailBlock>
+      <DetailBlock title="Worker resource history"><p className="hint">A worker reports these measurements about its own machine and process. The latest snapshot explains its current state; the charts show the most recent trend without pretending to be a full monitoring system.</p><ResourceSnapshotDetail snapshots={resourceSnapshots} /><ResourceHistoryInsights snapshots={resourceSnapshots} /></DetailBlock>
       <DetailBlock title="Model residency"><p className="hint">A residency means a specific worker process has loaded a model. It is different from merely registering a model definition.</p>{residencies === null ? <p className="empty">Loading residency snapshots…</p> : residencies.length === 0 ? <EmptyState message="No model is currently recorded as resident on this worker." /> : residencies.map((residency) => <div className="residency" key={residency.id}><div><strong>{residency.model_id}</strong><span className="secondary">Last used {formatTime(residency.last_used_at)} · {residency.active_execution_count} active executions</span></div><Badge value={residency.status} /></div>)}</DetailBlock>
       <DetailBlock title="Recent benchmarks"><p className="hint">These are warm-runtime execution measurements, not model-quality scores.</p>{benchmarks === null ? <p className="empty">Loading benchmark history…</p> : benchmarks.length === 0 ? <EmptyState message="No benchmark has been recorded for this worker process." /> : <><BenchmarkInsights benchmarks={benchmarks} />{benchmarks.map((benchmark) => <div className="benchmark" key={benchmark.id}><div><strong>{benchmark.model_id} · {benchmark.task}</strong><span className="secondary">{benchmark.measurement_iterations} measured runs after {benchmark.warmup_iterations} warmups</span></div><strong>{benchmark.mean_wall_time_ms.toFixed(3)} ms mean</strong></div>)}</>}</DetailBlock>
     </>}
@@ -255,6 +255,44 @@ function ResourceSnapshotDetail({ snapshots }: { snapshots: ResourceSnapshot[] |
     <InsightMetric label="Worker process CPU" value={`${latest.process_cpu_percent.toFixed(1)}%`} />
     <span className="secondary resource-observed">Reported {formatTime(latest.observed_at)}</span>
   </div>;
+}
+
+function ResourceHistoryInsights({ snapshots }: { snapshots: ResourceSnapshot[] | null }) {
+  if (snapshots === null || snapshots.length === 0) return null;
+
+  // The API intentionally returns newest first for “latest” views. A copied,
+  // reversed list makes time progress from left to right in these charts.
+  const chronological = [...snapshots].reverse();
+  const latest = snapshots[0];
+  const latestAvailablePercent = percentage(latest.host_available_memory_bytes, latest.host_total_memory_bytes);
+  const latestProcessMemoryPercent = percentage(latest.process_memory_bytes, latest.host_total_memory_bytes);
+
+  return <section className="resource-history" aria-label="Recent worker resource history">
+    <p className="hint">Each pair of bars is one durable report. CPU bars are percentages. Memory bars compare available host memory and this worker process’s RAM against the same total host memory, so the two values are meaningful together.</p>
+    <div className="resource-history-summary">
+      <InsightMetric label="Reports shown" value={String(chronological.length)} />
+      <InsightMetric label="Latest available memory" value={`${latestAvailablePercent.toFixed(1)}%`} />
+      <InsightMetric label="Latest worker RAM" value={`${latestProcessMemoryPercent.toFixed(2)}%`} />
+    </div>
+    <ResourceBarChart title="CPU over time" first="Host CPU" second="Worker CPU" firstValues={chronological.map((snapshot) => snapshot.host_cpu_percent)} secondValues={chronological.map((snapshot) => snapshot.process_cpu_percent)} labels={chronological.map((snapshot) => formatTime(snapshot.observed_at))} unit="%" />
+    <ResourceBarChart title="Memory share over time" first="Host memory available" second="Worker process RAM" firstValues={chronological.map((snapshot) => percentage(snapshot.host_available_memory_bytes, snapshot.host_total_memory_bytes))} secondValues={chronological.map((snapshot) => percentage(snapshot.process_memory_bytes, snapshot.host_total_memory_bytes))} labels={chronological.map((snapshot) => formatTime(snapshot.observed_at))} unit="% of host RAM" />
+  </section>;
+}
+
+function ResourceBarChart({ title, first, second, firstValues, secondValues, labels, unit }: { title: string; first: string; second: string; firstValues: number[]; secondValues: number[]; labels: string[]; unit: string }) {
+  return <section className="resource-chart" aria-label={title}>
+    <header><strong>{title}</strong><span><i className="resource-key host-key" />{first}<i className="resource-key process-key" />{second}</span></header>
+    <ol className="resource-bars">
+      {firstValues.map((firstValue, index) => {
+        const secondValue = secondValues[index];
+        const label = labels[index];
+        return <li key={`${title}-${label}`} title={`${label}: ${first} ${firstValue.toFixed(1)}${unit}; ${second} ${secondValue.toFixed(1)}${unit}`}>
+          <div className="resource-bar-pair"><span className="resource-bar host-bar" style={{ height: `${chartHeight(firstValue)}%` }} /><span className="resource-bar process-bar" style={{ height: `${chartHeight(secondValue)}%` }} /></div>
+          <span>{label}</span>
+        </li>;
+      })}
+    </ol>
+  </section>;
 }
 
 function BenchmarkInsights({ benchmarks }: { benchmarks: Benchmark[] }) {
@@ -301,6 +339,8 @@ function EmptyState({ message }: { message: string }) { return <p className="emp
 function readableError(reason: unknown): string { return reason instanceof Error ? reason.message : "Could not load this detail."; }
 function formatMilliseconds(value: number): string { return `${value.toFixed(3)} ms`; }
 function formatMetricValue(value: number): string { return Number.isInteger(value) ? String(value) : value.toFixed(3); }
+function percentage(value: number, total: number): number { return total === 0 ? 0 : (value / total) * 100; }
+function chartHeight(value: number): number { return Math.max(2, Math.min(100, value)); }
 function formatBytes(value: number): string {
   const units = ["B", "KiB", "MiB", "GiB"];
   let scaled = value;

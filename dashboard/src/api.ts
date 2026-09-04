@@ -54,7 +54,9 @@ export const api = {
     ),
   resourceSnapshots: (worker: Worker) =>
     getJson<ResourceSnapshot[]>(
-      `/workers/${encodeURIComponent(worker.id)}/resource-snapshots?limit=5`,
+      // Twenty points reveal a recent trend without loading an unbounded
+      // measurement history every time the operator selects a worker.
+      `/workers/${encodeURIComponent(worker.id)}/resource-snapshots?limit=20`,
       { "Worker-Instance-ID": worker.instance_id },
     ),
 };

@@ -117,8 +117,20 @@ worker-process CPU/RAM values. These are durable worker-reported measurements,
 not guesses made by the browser. When a model cannot safely fit, the saved job
 scheduling rationale shows `insufficient_memory_headroom`.
 
-The current card shows only the newest measurement. Historical resource charts
-will come after periodic worker collection exists. Read
+### Worker resource history
+
+The worker detail also renders the latest twenty durable resource reports as
+two small trend charts. They reuse the existing resource-snapshot API—there is
+no dashboard-only state and no new scheduler behavior.
+
+- **CPU over time**: host CPU and worker-process CPU.
+- **Memory share over time**: available host memory and worker-process RAM,
+  each expressed as a share of total host RAM.
+
+The API returns newest-first data because that is best for a “latest” card. The
+dashboard reverses a copy only for drawing, so time reads left to right while
+the saved API contract stays unchanged. Each chart is deliberately limited to
+twenty reports to keep selecting a worker fast and predictable. Read
 [`resource-telemetry.md`](resource-telemetry.md) for the meaning and limits of
 each number.
 
@@ -178,6 +190,7 @@ be misleading. Host-resource sampling is a later capability.
 | Job detail | `GET /jobs/{job_id}/scheduling-decisions` | The historical candidate evaluation saved when Conductor placed or deferred a job. |
 | Worker detail | `GET /workers/{worker_id}/residencies` and `/benchmarks` | Loaded-model snapshots and warm-runtime measurements for the current worker process. |
 | Benchmark timing insight | Existing benchmark history in the worker detail | A visual comparison of saved mean wall-clock timings; it is not a CPU/RAM chart. |
+| Worker resource history | Existing bounded worker resource-snapshot history | Recent CPU and memory-capacity trend; it is not a full machine-monitoring service. |
 | Queue explorer | `GET /jobs?status=...&limit=11&offset=...` | A filterable, paginated view of durable jobs. |
 
 That last distinction is important: model **definition** means configured;

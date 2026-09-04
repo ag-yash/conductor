@@ -55,7 +55,7 @@ shapes you know.
 | Runtimes | Fixture adapter, Ollama text adapter, ONNX `tensor.infer` adapter, worker-owned on-demand loading, warm reuse, and idle eviction | Memory-pressure policy |
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
 | Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions |
-| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, benchmark timing insight, and latest CPU/RAM snapshot | Dashboard write actions, historical host-resource charts, and live updates |
+| User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, benchmark timing insight, and bounded CPU/RAM history charts | Dashboard write actions and live updates |
 | Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
 
 ## What “implemented” means here

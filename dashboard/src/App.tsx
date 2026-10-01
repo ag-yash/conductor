@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { api } from "./api";
 import { QueueExplorer } from "./QueueExplorer";
@@ -21,6 +21,7 @@ type DashboardState = {
 };
 
 const emptyState: DashboardState = { health: null, jobs: [], models: [], workers: [] };
+const dashboardRefreshMilliseconds = 5_000;
 
 function formatTime(value: string | null): string {
   if (value === null) return "Not recorded";
@@ -53,9 +54,16 @@ export function App() {
   const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
   const [resourceSnapshots, setResourceSnapshots] = useState<ResourceSnapshot[] | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [refreshEpoch, setRefreshEpoch] = useState(0);
+  // A slow API call must not make a new request every five seconds. The ref is
+  // intentionally outside React state because it guards an in-flight operation,
+  // not a value that needs to be rendered.
+  const refreshInProgress = useRef(false);
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true);
+  const refresh = useCallback(async (background = false) => {
+    if (refreshInProgress.current) return;
+    refreshInProgress.current = true;
+    if (!background) setIsLoading(true);
     setError(null);
     try {
       // These reads are independent. Fetching them together makes the overview
@@ -67,11 +75,17 @@ export function App() {
         api.workers(),
       ]);
       setState({ health, jobs: jobPage.items, models, workers });
+      // Keep an open job panel aligned with the fresh overview when that job
+      // still belongs to the small overview page. Its detailed evidence is
+      // refreshed by the effects below regardless.
+      setSelectedJob((selected) => jobPage.items.find((job) => job.id === selected?.id) ?? selected);
       setLastUpdated(new Date());
+      setRefreshEpoch((epoch) => epoch + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load Conductor.");
     } finally {
-      setIsLoading(false);
+      refreshInProgress.current = false;
+      if (!background) setIsLoading(false);
     }
   }, []);
 
@@ -80,10 +94,23 @@ export function App() {
   }, [refresh]);
 
   useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refresh(true);
+    };
+    // Polling is the smallest useful live-update transport for a local tool.
+    // It avoids a new WebSocket protocol while keeping the overview and any
+    // selected details close to the durable state in SQLite.
+    const interval = window.setInterval(refreshWhenVisible, dashboardRefreshMilliseconds);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [refresh]);
+
+  useEffect(() => {
     if (selectedJob === null) return;
     let isCurrent = true;
-    setDecisions(null);
-    setDetailError(null);
     void api
       .schedulingDecisions(selectedJob.id)
       .then((items) => {
@@ -95,15 +122,11 @@ export function App() {
     return () => {
       isCurrent = false;
     };
-  }, [selectedJob]);
+  }, [selectedJob, refreshEpoch]);
 
   useEffect(() => {
     if (selectedWorker === null) return;
     let isCurrent = true;
-    setResidencies(null);
-    setBenchmarks(null);
-    setResourceSnapshots(null);
-    setDetailError(null);
     void Promise.all([
       api.residencies(selectedWorker),
       api.benchmarks(selectedWorker),
@@ -121,7 +144,21 @@ export function App() {
     return () => {
       isCurrent = false;
     };
-  }, [selectedWorker]);
+  }, [selectedWorker, refreshEpoch]);
+
+  const inspectJob = (job: Job) => {
+    setDecisions(null);
+    setDetailError(null);
+    setSelectedJob(job);
+  };
+
+  const inspectWorker = (worker: Worker) => {
+    setResidencies(null);
+    setBenchmarks(null);
+    setResourceSnapshots(null);
+    setDetailError(null);
+    setSelectedWorker(worker);
+  };
 
   const ready = state.health?.status === "ready";
   const activeJobs = state.jobs.filter((job) => ["assigned", "running"].includes(job.status));
@@ -156,7 +193,7 @@ export function App() {
           </p>
         </div>
         <p className="last-updated">
-          {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Waiting for API…"}
+          {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()} · Auto-refreshing every 5 sec` : "Waiting for API…"}
         </p>
       </section>
 
@@ -179,7 +216,7 @@ export function App() {
               <table>
                 <thead><tr><th>Task</th><th>Model</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
                 <tbody>{state.jobs.map((job) => <tr key={job.id} className={selectedJob?.id === job.id ? "selected-row" : ""}>
-                  <td><button className="table-action" onClick={() => setSelectedJob(job)}><strong>{job.task}</strong><span className="secondary">{job.id.slice(0, 8)}</span></button></td>
+                  <td><button className="table-action" onClick={() => inspectJob(job)}><strong>{job.task}</strong><span className="secondary">{job.id.slice(0, 8)}</span></button></td>
                   <td>{job.model_id}</td><td>{job.priority}</td>
                   <td><Badge value={job.status} /></td><td>{formatTime(job.created_at)}</td>
                 </tr>)}</tbody>
@@ -192,7 +229,7 @@ export function App() {
           <PanelHeading title="Workers" subtitle="Select a worker to inspect its loaded-model snapshot and benchmark history." />
           <div className="stack">
             {state.workers.length === 0 ? <EmptyState message="No worker has registered." /> : state.workers.map((worker) => (
-              <button className={`worker interactive ${selectedWorker?.id === worker.id ? "selected-card" : ""}`} key={worker.id} onClick={() => setSelectedWorker(worker)}>
+              <button className={`worker interactive ${selectedWorker?.id === worker.id ? "selected-card" : ""}`} key={worker.id} onClick={() => inspectWorker(worker)}>
                 <div><strong>{worker.id}</strong><span className="secondary">{worker.instance_id}</span></div>
                 <Badge value={worker.status} />
                 <span className="slot-count">{worker.max_parallel_jobs} slot{worker.max_parallel_jobs === 1 ? "" : "s"}</span>
@@ -214,7 +251,7 @@ export function App() {
         </article>
       </section>
 
-      <QueueExplorer selectedJobId={selectedJob?.id ?? null} onSelectJob={setSelectedJob} />
+      <QueueExplorer selectedJobId={selectedJob?.id ?? null} onSelectJob={inspectJob} />
 
       {selectedJob || selectedWorker ? <section className="detail-grid" aria-label="Selected investigation details">
         {selectedJob ? <JobDetail job={selectedJob} decisions={decisions} error={detailError} onClose={() => setSelectedJob(null)} /> : null}

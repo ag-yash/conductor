@@ -197,10 +197,26 @@ That last distinction is important: model **definition** means configured;
 model **residency** means loaded by one particular worker process. See
 [`models-and-runtimes.md`](models-and-runtimes.md) for the detailed explanation.
 
-## Current limitations
+## Freshness and current limitations
 
-- The page fetches state on load and when **Refresh** is pressed; it does not
-  yet use polling or WebSockets.
+The dashboard fetches state on load, when **Refresh** is pressed, and every
+five seconds while the browser tab is visible. This is **polling**: the browser
+asks the existing HTTP API for the latest durable state at a fixed interval.
+
+Polling is the right V1 trade-off here. Conductor runs locally, the operator
+views a small amount of state, and a five-second delay is acceptable for an
+observability screen. It is much smaller and easier to debug than introducing
+a WebSocket connection, a separate event stream, reconnection handling, and
+another consistency path.
+
+The dashboard does not start overlapping refreshes. If one API refresh is still
+running when the next five-second tick arrives, that tick is skipped. It also
+pauses polling in a hidden browser tab and refreshes when the tab becomes
+visible again. An open job or worker detail panel reloads its existing evidence
+after every successful overview refresh.
+
+The remaining limits are:
+
 - It displays the most recent eight jobs in the overview, while Queue explorer
   has status filters and forward/backward pagination.
 - It has no write actions. Continue using the CLI or OpenAPI page for job and
@@ -209,5 +225,5 @@ model **residency** means loaded by one particular worker process. See
   policy belong to a later deployment milestone.
 
 These limits are intentional. The dashboard now proves that a UI can show
-truthful current state **and** durable evidence from the authoritative API.
-Later slices can add charts and live updates without changing that boundary.
+truthful current state **and** durable evidence from the authoritative API
+without becoming a second control plane.

@@ -76,7 +76,7 @@ Concepts introduced: adapter pattern, model metadata versus loaded state, cold s
 - Standalone `conductor-worker` process for automatic registration, polling, heartbeats, resource reports, and graceful drain. **Complete.**
 - Worker-owned runtime invocation with durable result/failure and residency reporting. **Complete.**
 - Historical host-resource charts. **Complete.**
-- Live updates using a minimal justified transport.
+- Live updates using bounded visible-tab polling. **Complete.**
 
 Demo: operate and explain the system without reading terminal logs.
 

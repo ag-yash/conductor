@@ -122,12 +122,15 @@ idle eviction, and benchmark history. It is an integration test because one HTTP
 request travels through validation, service logic, runtime coordination, SQLite,
 and the response schema.
 
-The dashboard's initial behaviour is simple enough to verify through its lint
-and production build: it is a typed read-only client over existing APIs. The
-new `GET /workers` backend contract is protected by
+The dashboard remains a typed read-only client over existing APIs, so linting
+and the production build protect its current integration boundary. The backend
+contract behind its worker overview is protected by
 `test_operator_can_list_current_registered_workers` in `test_workers_api.py`.
-Later, when the dashboard gains filters, write actions, or live updates, it will
-also receive browser-level interaction tests.
+The visible-tab polling behavior is also manually checked against a temporary
+local API: a background refresh must not overlap an existing request, and an
+open detail panel must reload its durable evidence after a successful refresh.
+Browser-level automated interaction tests remain appropriate once the dashboard
+adds write actions or more complex controls.
 
 ## Testing concurrency rules
 

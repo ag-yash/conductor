@@ -78,7 +78,27 @@ conductor workers resource-snapshots \
 ```
 
 The API orders them newest first. The dashboard uses the newest item for its
-**Latest resource snapshot** card.
+**Latest resource snapshot** card and reverses a bounded copy for its
+left-to-right history charts.
+
+## Reading the history charts
+
+The worker detail requests the latest **20** durable reports. This is a
+deliberate limit: it makes the graph useful for recent investigation without
+loading an unbounded amount of SQLite history every time a worker is selected.
+
+There are two charts:
+
+- **CPU over time** compares host CPU with this worker process's CPU. The host
+  can be busy because of your editor, browser, or another process; this is why
+  host CPU and worker CPU are shown separately.
+- **Memory share over time** compares host memory that is currently available
+  with this worker process's RAM, both as a percentage of total host memory.
+  It is a capacity trend, not a claim that the process owns all unavailable RAM.
+
+The bars are visual aids. Hovering a pair shows the exact saved values and the
+time of that report. The latest numeric card remains the quickest answer to
+“what is happening right now?”
 
 ## Memory headroom example
 
@@ -105,8 +125,8 @@ while a model is loading.
 - The scheduler enforces memory only when it has a latest snapshot. Workers
   without telemetry remain compatible during this rollout.
 - CPU is stored and displayed, but it does not yet change placement decisions.
-- The dashboard shows the latest snapshot. Historical CPU/RAM charts and a
-  periodic measuring worker are the next improvements.
+- The dashboard shows the latest snapshot and a bounded history chart. A
+  periodic memory-pressure eviction policy remains future work.
 
 ## Code path to trace
 
@@ -114,6 +134,7 @@ while a model is loading.
 2. `services/workers.py` rejects stale process identities and creates the snapshot.
 3. `storage/repositories.py` appends it to SQLite.
 4. `scheduler/policy.py` checks memory headroom during placement.
-5. `dashboard/src/App.tsx` shows the latest durable snapshot.
+5. `dashboard/src/App.tsx` shows the latest durable snapshot and bounded
+   history charts.
 6. `tests/test_workers_api.py` proves storage, stale-process protection, and
    memory-based deferral.

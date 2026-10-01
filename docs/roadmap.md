@@ -85,7 +85,8 @@ Concepts introduced: CLI ergonomics, dashboard information design, live updates,
 ## M7 — Release hardening
 
 - Prometheus-compatible metrics, failure-injection scenarios, and integration tests.
-- Docker setup, native Apple Silicon setup, CI, security review, and contributor documentation.
+- Docker Compose setup for the API, fixture worker, and dashboard. **Complete.**
+- Native Apple Silicon setup, CI hardening, security review, and contributor documentation.
 - Reproducible demo script, screenshots/video, performance baseline, and `v1.0.0` release notes.
 
 Demo: clone-to-demo walkthrough on a clean machine.

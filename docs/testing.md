@@ -34,6 +34,24 @@ GitHub Actions runs both the Python gates and these dashboard gates on every
 pull request. The two applications have different toolchains, so keeping their
 checks explicit makes a failed pipeline easier to understand.
 
+## Docker validation boundary
+
+The Docker Compose configuration is deliberately small enough to inspect: it
+builds the API/worker image, builds the dashboard, waits for the API readiness
+endpoint, and connects the browser's existing `/api` contract through Nginx.
+
+When Docker Desktop is available, validate those files before release with:
+
+```bash
+docker compose config
+docker compose up --build
+```
+
+Then follow [`docker.md`](docker.md) to register the fixture model and submit a
+job. The regular Python and dashboard checks still run without Docker, which is
+important for contributors and CI environments that do not provide a container
+daemon.
+
 ## Unit tests versus integration tests
 
 A unit test exercises a small piece without starting the whole application.

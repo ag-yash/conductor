@@ -56,7 +56,7 @@ shapes you know.
 | Models | Durable definitions and residency snapshots per worker process | Model revision updates and configuration administration |
 | Benchmarks | Warmup + repeated execution, wall-clock timing, runtime metrics, SQLite history API and CLI commands, and a dashboard timing chart | Percentile distributions |
 | User experience | OpenAPI page at `/docs`, thin terminal CLI, and local read-only dashboard with job/worker details, queue explorer, benchmark timing insight, bounded CPU/RAM history charts, and visible-tab polling every 5 seconds | Dashboard write actions |
-| Deployment | Native local development and GitHub Actions checks | Docker walkthrough, release package, Apple Silicon performance guide |
+| Deployment | Native local development, Docker Compose API/worker/dashboard setup, and GitHub Actions checks | Release package and Apple Silicon performance guide |
 
 ## What “implemented” means here
 

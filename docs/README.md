@@ -10,22 +10,23 @@ If this is your first time reading the project:
 2. [`vision.md`](vision.md) — the problem Conductor is designed to solve.
 3. [`codebase-guide.md`](codebase-guide.md) — where code lives and how one request moves through it.
 4. [`getting-started.md`](getting-started.md) — run the current system locally.
-5. [`cli.md`](cli.md) — operate that running system from the terminal.
-6. [`dashboard.md`](dashboard.md) — inspect the same system in a local browser.
-7. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
-8. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
-9. [`resource-telemetry.md`](resource-telemetry.md) — understand CPU/RAM snapshots and safe memory headroom.
-10. [`standalone-worker.md`](standalone-worker.md) — run the real worker process and understand its current boundary.
-11. [`lease-recovery.md`](lease-recovery.md) — understand heartbeat expiry, lost attempts, and safe retries.
-12. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
-13. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
-14. [`onnx-runtime.md`](onnx-runtime.md) — run local tensor inference and understand provider selection.
-15. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
-16. [`state-machines.md`](state-machines.md) — understand legal status changes.
-17. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
-18. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
-19. [`testing.md`](testing.md) — understand how behavior and quality are verified.
-20. [`architecture.md`](architecture.md) — connect all components and trade-offs.
+5. [`docker.md`](docker.md) — run the reproducible API, worker, and dashboard stack.
+6. [`cli.md`](cli.md) — operate that running system from the terminal.
+7. [`dashboard.md`](dashboard.md) — inspect the same system in a local browser.
+8. [`jobs.md`](jobs.md) — understand durable jobs and idempotency.
+9. [`workers.md`](workers.md) — understand workers, heartbeats, and process-instance IDs.
+10. [`resource-telemetry.md`](resource-telemetry.md) — understand CPU/RAM snapshots and safe memory headroom.
+11. [`standalone-worker.md`](standalone-worker.md) — run the real worker process and understand its current boundary.
+12. [`lease-recovery.md`](lease-recovery.md) — understand heartbeat expiry, lost attempts, and safe retries.
+13. [`scheduling.md`](scheduling.md) — understand how and why a worker is selected.
+14. [`models-and-runtimes.md`](models-and-runtimes.md) — understand definitions, loaded state, and adapters.
+15. [`onnx-runtime.md`](onnx-runtime.md) — run local tensor inference and understand provider selection.
+16. [`benchmarks.md`](benchmarks.md) — measure warm runtime execution and read the summary.
+17. [`state-machines.md`](state-machines.md) — understand legal status changes.
+18. [`domain-model.md`](domain-model.md) — study the detailed objects and invariants.
+19. [`persistence-and-concurrency.md`](persistence-and-concurrency.md) — understand transactions, repositories, and races.
+20. [`testing.md`](testing.md) — understand how behavior and quality are verified.
+21. [`architecture.md`](architecture.md) — connect all components and trade-offs.
 
 You can keep [`glossary.md`](glossary.md) open while reading.
 

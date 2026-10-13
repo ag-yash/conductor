@@ -1,0 +1,20 @@
+# Keep build contexts small and never copy developer-specific state into images.
+.git/
+.venv/
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite*
+data/
+models/
+artifacts/
+.env
+.env.*
+.codex-pet-runs/
+dashboard/.vite/

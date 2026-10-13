@@ -3,13 +3,13 @@
 Conductor is an intelligent, local-first AI workload manager for developers. It
 provides a unified way to schedule, run, and observe selected local AI workloads
 while managing model residency responsibly. The complete `v1.0.0` target expands
-this with richer dashboard views, an ONNX runtime, and deeper resource-aware scheduling.
+this with release hardening and deeper resource-aware scheduling.
 
 Conductor currently provides a local control plane with durable SQLite jobs,
 explainable worker scheduling, worker leases, trusted model definitions, fixture
 and Ollama runtime adapters, warm-model residency, idle eviction, and recorded
-runtime benchmarks, a terminal CLI, and a local dashboard with summary, detail,
-and queue-investigation views. See [the current-capabilities guide](docs/current-capabilities.md)
+runtime benchmarks, a terminal CLI, a local dashboard with summary, detail, and
+queue-investigation views, and a Docker Compose demo stack. See [the current-capabilities guide](docs/current-capabilities.md)
 for a precise implemented-versus-planned matrix.
 
 ## Product principles
@@ -69,13 +69,15 @@ Run the control plane with `conductor-api`, then open `http://127.0.0.1:8080/doc
 use `conductor health`, or start the local browser dashboard. The
 [getting-started guide](docs/getting-started.md) explains the process and configuration;
 [`docs/cli.md`](docs/cli.md) and [`docs/dashboard.md`](docs/dashboard.md) give runnable demos.
+For a reproducible three-process demo, use the
+[Docker Compose guide](docs/docker.md).
 
 ## Status
 
 M1–M5 are complete: the control plane provides durable jobs, workers, explainable
-scheduling, model lifecycle management, runtimes, and benchmarks. M6 is in
-progress: the CLI and read-only dashboard investigation views are available;
-resource charts and live updates remain planned.
+scheduling, model lifecycle management, runtimes, and benchmarks. M6 is
+complete: the CLI and read-only dashboard provide investigation views, resource
+history, and bounded live refresh. M7 release hardening is now underway.
 
 ## Contributing
 
